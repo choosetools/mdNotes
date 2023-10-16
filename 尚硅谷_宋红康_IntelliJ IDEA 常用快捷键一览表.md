@@ -1,7 +1,5 @@
 # IntelliJ IDEA 常用快捷键一览表
 
-author：尚硅谷-宋红康
-
 ***
 
 ## 1-IDEA的日常快捷键
