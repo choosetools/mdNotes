@@ -150,21 +150,21 @@ System.out.println(b1);
 
 ### 二、二进制、十进制、八进制与十六进制之间的转换
 
-![](..\images\截图1.png "二进制转十进制")
+![](.\images\截图1.png "二进制转十进制")
 
-![](..\images\截图2.png)
+![](.\images\截图2.png)
 
-![](..\images\截图3.png)
+![](.\images\截图3.png)
 
-![](..\images\截图4.png)
+![](.\images\截图4.png)
 
-![](..\images\截图5.png)
+![](.\images\截图5.png)
 
-![](..\images\截图6.png)
+![](.\images\截图6.png)
 
-![](..\images\截图7.png)
+![](.\images\截图7.png)
 
-![](..\images\截图8.png)
+![](.\images\截图8.png)
 
 ---
 
@@ -243,7 +243,7 @@ public static void main(String[] args) {
 
 **逻辑运算符：**
 
-​    ![](..\images\截图9.png)
+​    ![](.\images\截图9.png)
 
 异或运算符：**^**
 
@@ -261,9 +261,9 @@ public static void main(String[] args) {
 
 ### 一、**基本语法：**
 
-![](..\images\截图10.png)
+![](.\images\截图10.png)
 
-![](..\images\截图11.png)
+![](.\images\截图11.png)
 
 **位运算符的运算过程都是基于底层二进制补码进行的。**
 
@@ -275,11 +275,11 @@ public static void main(String[] args) {
 
 > 3 << 4 类似于 3 * 2的4次幂 => 3 * 16 => 48
 
-![](..\images\截图12.png)
+![](.\images\截图12.png)
 
 > -3 << 4 类似于 -3 \* 2的4次幂 => -3 * 16 => -48
 
-![](..\images\截图13.png)
+![](.\images\截图13.png)
 
 ### **（2）右移**
 
@@ -291,11 +291,11 @@ public static void main(String[] args) {
 
 > 69>>4  类似于  69/2的4次 = 69/16 =4
 
-![](..\images\截图14.png)
+![](.\images\截图14.png)
 
 > -69 >> 4 类似于 -69 / 2的四次幂 = -69 / 16 = -5
 
-![](..\images\截图15.png)
+![](.\images\截图15.png)
 
 对于左移<<与右移>>运算符，它们用于进行乘2的n次幂以及除以2的n次幂的运算速度比乘法除法的运算速度快，但也就仅仅快一点点。
 
@@ -319,25 +319,25 @@ System.out.println(10 << 100);
 
 运算规则：往右移动后，左边出来的位直接补0。（正数、负数都适用）
 
-![](..\images\截图16.png)
+![](.\images\截图16.png)
 
-![](..\images\截图17.png)
+![](.\images\截图17.png)
 
-![](..\images\截图18.png)
+![](.\images\截图18.png)
 
-![](..\images\截图19.png)
+![](.\images\截图19.png)
 
-![](..\images\截图20.png)
+![](.\images\截图20.png)
 
-![](..\images\截图21.png)
+![](.\images\截图21.png)
 
-![](..\images\截图22.png)
+![](.\images\截图22.png)
 
-![](..\images\截图23.png)
+![](.\images\截图23.png)
 
-![](..\images\截图24.png)
+![](.\images\截图24.png)
 
-![](..\images\截图25.png)
+![](.\images\截图25.png)
 
 ---
 
