@@ -581,3 +581,87 @@ public class ArrayTest4 {
 
 ### 五、一维数组内存分析
 
+#### java中内存结构是如何划分的？
+
+将内存区域划分为5个部分：程序计数器、虚拟机栈、本地方法栈、堆、方法区。
+
+| 区域名称   | 作用                                                         |
+| ---------- | ------------------------------------------------------------ |
+| `虚拟机栈` | 用于存储正在执行的每个Java方法的局部变量表等。局部变量表存放了编译期可知长度的各种基本数据类型、对象引用，方法执行完，自动释放。 |
+| `堆内存`   | 存储对象（包括数组对象），new来创建的，都存储在堆内存。      |
+| `方法区`   | 存储已被虚拟机加载的类信息、常量、（静态变量）、即时编译器编译后的代码等数据。 |
+| 本地方法栈 | 当程序中调用了native的本地方法时，本地方法执行期间的内存区域 |
+| 程序计数器 | 程序计数器是CPU中的寄存器，它包含每一个线程下一条要执行的指令的地址 |
+
+与数组有关的内存结构：
+
+* 虚拟机栈：用于存放方法中声明的局部变量。
+* 堆：用于存放数组的实体（即数组中的所有元素）
+
+例如：int[]  arr = new int[]{1, 2, 3};
+
+那么在虚拟机栈里面，存放的是arr这个数组名；
+
+堆里面就存放着1,2,3。
+
+
+
+#### 一维数组在内存中的存储
+
+一维数组内存图
+
+```java
+public static void main(String[] args) {
+  	int[] arr = new int[3];
+  	System.out.println(arr);//[I@5f150435
+}
+```
+
+程序执行流程：
+
+1. main方法进入方法栈执行
+2. 创建数组，JVM会在堆内存中开辟空间，存储数组；arr变量存储在栈中
+3. 数组在内存中会有自己的内存地址，使用十六进制数表示
+4. 数组中有3个元素，因为没有进行赋值，所以有默认值0
+5. JVM将堆中数组的内存首地址赋值给栈中的变量arr
+6. 变量arr保存的是数组内存中的地址值，不是具体的数值，因此是引用数据类型
+
+![](.\images\数组内存图.png)
+
+两个数组之间相互独立：
+
+```java
+public static void main(String[] args) {
+    int[] arr = new int[3];
+    int[] arr2 = new int[2];
+    System.out.println(arr);
+    System.out.println(arr2);
+}
+```
+
+<img src=".\images\数组内存图2.jpg" style="zoom:67%;">
+
+两个数组指向同一个地址：
+
+```java
+public static void main(String[] args) {
+    // 定义数组，存储3个元素
+    int[] arr = new int[3];
+    //数组索引进行赋值
+    arr[0] = 5;
+    arr[1] = 6;
+    arr[2] = 7;
+    //输出3个索引上的元素值
+    System.out.println(arr[0]);
+    System.out.println(arr[1]);
+    System.out.println(arr[2]);
+    //定义数组变量arr2，将arr的地址赋值给arr2
+    int[] arr2 = arr;
+    arr2[1] = 9;
+    System.out.println(arr[1]);
+}
+```
+
+int arr2 = arr，不是将arr里面的数组值赋值给arr2，而是将arr的地址值赋值给arr2，让arr2指向arr的数组地址。
+
+<img src="./images/数组内存图3.jpg" style="zoom:60%;">
