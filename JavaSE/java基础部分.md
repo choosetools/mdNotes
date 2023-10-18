@@ -665,3 +665,211 @@ public static void main(String[] args) {
 int arr2 = arr，不是将arr里面的数组值赋值给arr2，而是将arr的地址值赋值给arr2，让arr2指向arr的数组地址。
 
 <img src="./images/数组内存图3.jpg" style="zoom:60%;">
+
+### 六、二维数组的声明与初始化
+
+二维数组和一维稍微有点不一样，二维数组可以看作多个一维数组，而这里面的一维数组长度可以互不相同。
+
+**声明与初始化**：
+
+```
+声明：
+int[][] arr;
+
+初始化：
+1.静态初始化
+int[][] arr = {{1,2,3},{4,5,6},{7,8,9,10}};
+int[][] arr = new int[][]{{1,4}, {43,66}, {5, 89, 10, 5}};
+
+错误写法：
+int[][] arr = new int[3][]{{1,2,3},{4,5,6},{7,8,9,10}};
+这是错误的，静态初始化右边的[]中不能写数字，这和一维数组是一样的，一维数组静态初始化时[]中也不能写数字。
+
+2.动态初始化
+int[][] arr = new int[m][n];这里的n可写可不写
+arr[0] = new int[]{1, 2, 4};
+或
+arr[0] = new int[3];
+arr[0][0] = 1;
+的方式进行赋值
+
+当n写了，表明二维数组中的每一个一维数组都有相同的元素
+当n没有写，二维数组中的每个一维数组都可以有随意的数量。
+```
+
+注：`int[][]arr = new int[][3]; ` //非法
+
+所以我们可以使用二维数组，来保存一组一组的数据，并且这些组中元素的数量可以不同。
+
+
+
+注意：
+
+当我们去动态声明了二维数组时，还需要再给里面的一维数组声明，否则就是未声明就使用，例如：
+
+```java
+int[][] arr = new int[3][];
+arr[0][0] = 3;
+这种写法是错误的，会报空指针异常，因为arr[0]他也是一个一维数组，需要声明后才能使用，并且需要指明该一维数组的长度，即：
+arr[0] = new int[3];
+arr[0][0] = 3;
+这样才是正确的。
+```
+
+* 二维数组中每个一维数组默认初始化值都是null。
+
+* 需要对二维数组中的每一个一维数组分别进行初始化。
+
+  ```
+  public class Test22TwoDimensionalArrayUse {
+      public static void main(String[] args){
+          int[][] scores = {
+                  {85,96,85,75},
+                  {99,96,74,72,75},
+                  {52,42,56,75}
+          };
+  
+          //[[：代表二维数组，I代表元素类型是int
+          System.out.println(scores);//[[I@15db9742
+          System.out.println("一共有" + scores.length +"组成绩.");
+        
+          //[：代表一维数组，I代表元素类型是int
+          System.out.println(scores[0]);//[I@6d06d69c
+          System.out.println(scores[1]);//[I@7852e922
+          System.out.println(scores[2]);//[I@4e25154f
+          //System.out.println(scores[3]);//ArrayIndexOutOfBoundsException: 3
+      
+          System.out.println("第1组有" + scores[0].length +"个学员.");
+          System.out.println("第2组有" + scores[1].length +"个学员.");
+          System.out.println("第3组有" + scores[2].length +"个学员.");
+      
+          System.out.println("第1组的每一个学员成绩如下：");
+          //第一行的元素
+          System.out.println(scores[0][0]);//85
+          System.out.println(scores[0][1]);//96
+          System.out.println(scores[0][2]);//85
+          System.out.println(scores[0][3]);//75
+          
+          //java.lang.ArrayIndexOutOfBoundsException: 4
+        //System.out.println(scores[0][4]);
+      }
+  
+  }
+  ```
+
+  
+
+### 七、二维数组默认初始化值
+
+二维数组不同的初始化方式有着不同的默认初始化值：
+
+```java
+int[][] arr = new int[3][2];
+System.out.println(arr);
+System.out.println(arr[0]);
+System.out.println(arr[0][0]);
+
+System.out.println("*********************************");
+
+arr = new int[3][];
+System.out.println(arr);
+System.out.println(arr[0]);
+System.out.println(arr[0][0]);
+```
+
+输出结果：
+
+<img src=".\images\Snipaste_2023-10-18_19-43-29.png">
+
+原因：
+
+1. 当使用int[ \][ ] arr = new int[m\][n]的方式创建二维数组时，因为此时列值确定了（一维数组的长度），所以二维数组下的一维数组的长度也就确定了，此时二维数组下的一维数组也就完成了初始化，所以一维数组中的元素也就有了默认的初始值0。arr存储的是二维数组的地址值，arr[0]存储的则是二维数组下第一个元素（第一个一维数组）的地址值，arr[0\][0]存储的则是一维数组的默认初始值。
+2. 当使用int[ \][ ] arr = new int[m\][ ]的方式创建二维数组时，因为此时的列值没有确定，即二维数组下每个一维数组的长度未确定，即未进行初始化，所以二维数组下的每个元素（一维数组的值）也就存储不了一维数组的地址值，即为null，但是因为二维数组确定了，所以arr可以存储二维数组的地址值。
+
+### 八、二维数组内存解析
+
+<img src=".\images\Snipaste_2023-10-18_19-51-55.png">
+
+<img src=".\images\Snipaste_2023-10-18_19-56-30.png">
+
+#### 1. 使用静态初始化的方式创建二维数组
+
+例：
+
+```java
+int[][] arr = {
+    {1},
+    {2,2},
+    {3,3,3},
+    {4,4,4,4},
+    {5,5,5,5,5}
+};
+```
+
+<img src=".\images\1562112672215.png">
+
+#### 2.使用动态初始化的方式创建二维数组（确定行数和列数）
+
+例：
+
+```
+//1、声明二维数组，并确定行数和列数
+int[][] arr = new int[4][5];
+
+//2、确定元素的值
+for (int i = 0; i < arr.length; i++) {
+    for (int j = 0; j < arr.length; j++) {
+        arr[i][j] = i + 1;
+    }
+}
+```
+
+![](.\images\1562113179785.png)
+
+#### 3.使用动态初始化的方式创建二维数组（仅确定行数）
+
+```
+//1、声明一个二维数组，并且确定行数
+//因为每一行的列数不同，这里无法直接确定列数
+int[][]  arr = new int[5][];
+
+//2、确定每一行的列数
+for(int i=0; i<arr.length; i++){
+    /*
+			arr[0] 的列数是1
+			arr[1] 的列数是2
+			arr[2] 的列数是3
+			arr[3] 的列数是4
+			arr[4] 的列数是5
+			*/
+    arr[i] = new int[i+1];
+}
+
+//3、确定元素的值
+for(int i=0; i<arr.length; i++){
+    for(int j=0; j<arr[i].length; j++){
+        arr[i][j] = i+1;
+    }
+}
+```
+
+![](.\images\1562113981079.png)
+
+
+
+**注意：**
+
+`引用类型的变量在赋值的时候（赋的是地址值），会去校验是否与当前引用类型相同，如果相同才能够赋值，否则在编译期间就会报错。`
+
+比如：
+
+```
+int[][] arr = new int[4][];
+int[] arr2 = new int[3];
+arr = arr2;
+```
+
+这种就会直接在编译期间报错，因为arr和arr2虽然都是int类型的数组，但是一个是一维数组一个是二维数组，类型不同，不能赋值。
+
+
+
