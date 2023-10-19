@@ -99,15 +99,90 @@ public void test11(){
 
 ## 四、数组元素的查找
 
-
-
 ### 1、顺序查找
 
+顺序查找其实就是一个一个地去遍历。
 
+案例：查找value第一次在数组中出现的index
+
+```
+public class TestArrayOrderSearch {
+    //查找value第一次在数组中出现的index
+    public static void main(String[] args){
+        int[] arr = {4,5,6,1,9};
+        int value = 1;
+        int index = -1;
+
+        for(int i=0; i<arr.length; i++){
+            if(arr[i] == value){
+                index = i;
+                break;
+            }
+        }
+    
+        if(index==-1){
+            System.out.println(value + "不存在");
+        }else{
+            System.out.println(value + "的下标是" + index);
+        }
+    }
+
+}
+```
 
 ### 2、二分法查找
 
+二分法查找要求数组**必须是有序**的，这样才能判断当前索引所指向的元素与要查找元素的位置关系。
 
+**二分法查找图示**：
+
+![](.\images\image-20220317230955644.png)
+
+二分查找指的是每一个都要进行二分操作，然后进行查找；如果只有第一步进行二分的话，那和顺序查找的时间复杂度没啥区别。
+
+**实现步骤**：
+
+<img src=".\images\image-20220623210601915.png" style="zoom:60%;">
+
+示例代码：
+
+```
+//二分法查找：要求此数组必须是有序的。
+int[] arr3 = new int[]{-99,-54,-2,0,2,33,43,256,999};
+boolean isFlag = true;
+int value = 256;
+//int value = 25;
+int head = 0;//首索引位置
+int end = arr3.length - 1;//尾索引位置
+while(head <= end){
+    int middle = (head + end) / 2;
+    if(arr3[middle] == value){
+        System.out.println("找到指定的元素，索引为：" + middle);
+        isFlag = false;
+        break;
+    }else if(arr3[middle] > value){
+        end = middle - 1;
+    }else{//arr3[middle] < value
+        head = middle + 1;
+    }
+}
+
+if(isFlag){
+    System.out.println("未找打指定的元素");
+}
+```
+
+
+
+顺序查找：
+
+* 优点：算法简单
+* 缺点：效率低，执行的事件复杂度是O(N)
+
+二分法查找：
+
+* 优点：执行效率高，事件复杂度是O(logN)
+* 缺点：算法相较于顺序查找难一点，而且数组必须有序
 
 ## 五、数组的排序算法
 
