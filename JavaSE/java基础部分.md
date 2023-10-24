@@ -873,3 +873,106 @@ arr = arr2;
 
 
 
+### 九、数组的工具类Arrays
+
+java.util.Arrays类即为操作数组的工具类，包含了用来操作数组（比如排序和搜索）的各种方法。比如：
+
+* `数组元素拼接`：**toString**
+  * static String toString(int[] a)：字符串表示形式由数组的元素列表组成，括在方括号（"[]"）中，相邻元素用字符","（逗号加空格）分隔。形式为：[元素1, 元素2, 元素3...]
+  * static String toString(Object[] a)：字符串表示形式由数组的元素列表组成，括在方括号（"[]"）。相邻元素用字符","(逗号加空格）分隔。元素将自动调用自己从Object继承的toString方法将对象转为字符串进行拼接，如果没有重写，则返回类型@hash值，如果重写则按重写返回的字符串进行拼接。
+
+* `数组排序` **sort**
+
+  * static void sort(int[] a) ：将a数组按照从小到大进行排序
+  * static void sort(int[] a, int fromIndex, int toIndex) ：将a数组的[fromIndex, toIndex)部分按照升序排列
+  * static void sort(Object[] a) ：根据元素的自然顺序对指定对象数组按升序进行排序。
+  * static <T> void sort(T[] a, Comparator<? super T> c) ：根据指定比较器产生的顺序对指定对象数组进行排序。
+
+* `数组元素的二分查找` **binarySearch**
+
+  **使用前提**：数组是有序的
+
+  * static int binarySearch(int[] a, int key)  、static int binarySearch(Object[] a, Object key) ：要求数组有序，在数组中查找key是否存在，如果存在返回第一次找到的下标，不存在返回负数。
+
+* `数组的复制` **copyOf**
+
+  * static int[] copyOf(int[] original, int newLength)  ：根据original原数组复制一个长度为newLength的新数组，并返回新数组
+  * static <T> T[] copyOf(T[] original,int newLength)：根据original原数组复制一个长度为newLength的新数组，并返回新数组
+  * static int[] copyOfRange(int[] original, int from, int to) ：复制original原数组的[from,to)构成新数组，并返回新数组
+  * static <T> T[] copyOfRange(T[] original,int from,int to)：复制original原数组的[from,to)构成新数组，并返回新数组
+
+* `比较两个数组是否相等` **equals**
+
+  * static boolean equals(int[] a, int[] a2) ：比较两个数组的长度、元素是否完全相同
+  * static boolean equals(Object[] a,Object[] a2)：比较两个数组的长度、元素是否完全相同
+
+* `填充数组 `**fill**
+
+  * static void fill(int[] a, int val) ：用val值填充整个a数组
+  * static void fill(Object[] a,Object val)：用val对象填充整个a数组
+  * static void fill(int[] a, int fromIndex, int toIndex, int val)：将a数组[fromIndex,toIndex)部分填充为val值
+  * static void fill(Object[] a, int fromIndex, int toIndex, Object val) ：将a数组[fromIndex,toIndex)部分填充为val对象
+
+### 十、 数组中的常见异常
+
+#### 8.1 数组角标越界异常
+
+当访问数组元素时，下标指定超出[0, 数组名.length-1]的范围时，就会报数组下标越界异常：ArrayIndexOutOfBoundsException。
+
+```java
+public class TestArrayIndexOutOfBoundsException {
+    public static void main(String[] args) {
+        int[] arr = {1,2,3};
+       // System.out.println("最后一个元素：" + arr[3]);//错误，下标越界
+      //  System.out.println("最后一个元素：" + arr[arr.length]);//错误，下标越界
+        System.out.println("最后一个元素：" + arr[arr.length-1]);//对
+    }
+}
+
+```
+
+创建数组，赋值3个元素，数组的索引就是0，1，2，没有3索引，因此我们不能访问数组中不存在的索引，程序运行后，将会抛出 `ArrayIndexOutOfBoundsException`  数组越界异常。在开发中，数组的越界异常是**不能出现**的，一旦出现了，就必须要修改我们编写的代码。
+
+![](C:\Users\14036\Desktop\Java资料\01_课件与电子教材\尚硅谷_第05章_数组\images\数组越界异常.jpg)
+
+#### 8.2 空指针异常
+
+观察一下代码，运行后会出现什么结果。
+
+```java
+public class TestNullPointerException {
+    public static void main(String[] args) {
+        //定义数组
+        int[][] arr = new int[3][];
+
+        System.out.println(arr[0][0]);//NullPointerException
+    }
+}
+```
+
+因为此时数组的每一行还未分配具体存储元素的空间，此时arr\[0\]是null，此时访问arr\[0\]\[0\]会抛出`NullPointerException` 空指针异常。
+
+![](C:\Users\14036\Desktop\Java资料\01_课件与电子教材\尚硅谷_第05章_数组\images\空指针异常-1647708157677.jpg)
+
+**空指针异常在内存图中的表现**
+
+![1572338767825](C:\Users\14036\Desktop\Java资料\01_课件与电子教材\尚硅谷_第05章_数组\images\1572338767825-1647708157678.png)
+
+**小结：空指针异常情况**
+
+```java
+		//举例一：
+//		int[] arr1 = new int[10];
+//		arr1 = null;
+//		System.out.println(arr1[9]);
+		
+		//举例二：
+//		int[][] arr2 = new int[5][];
+//		//arr2[3] = new int[10];
+//		System.out.println(arr2[3][3]);
+		
+		//举例三：
+		String[] arr3 = new String[10];
+		System.out.println(arr3[2].toString());
+```
+
