@@ -53,7 +53,7 @@ class BigWaterMelon {
 
 内存分配图：
 
-![](./images/20190226181808168.png)
+<img src="./images/20190226181808168.png"  />
 
 同一种颜色代表变量和对象的引用关系。
 
