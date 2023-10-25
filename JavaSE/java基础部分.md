@@ -933,8 +933,6 @@ public class TestArrayIndexOutOfBoundsException {
 
 创建数组，赋值3个元素，数组的索引就是0，1，2，没有3索引，因此我们不能访问数组中不存在的索引，程序运行后，将会抛出 `ArrayIndexOutOfBoundsException`  数组越界异常。在开发中，数组的越界异常是**不能出现**的，一旦出现了，就必须要修改我们编写的代码。
 
-![](C:\Users\14036\Desktop\Java资料\01_课件与电子教材\尚硅谷_第05章_数组\images\数组越界异常.jpg)
-
 #### 8.2 空指针异常
 
 观察一下代码，运行后会出现什么结果。
@@ -952,11 +950,7 @@ public class TestNullPointerException {
 
 因为此时数组的每一行还未分配具体存储元素的空间，此时arr\[0\]是null，此时访问arr\[0\]\[0\]会抛出`NullPointerException` 空指针异常。
 
-![](C:\Users\14036\Desktop\Java资料\01_课件与电子教材\尚硅谷_第05章_数组\images\空指针异常-1647708157677.jpg)
 
-**空指针异常在内存图中的表现**
-
-![1572338767825](C:\Users\14036\Desktop\Java资料\01_课件与电子教材\尚硅谷_第05章_数组\images\1572338767825-1647708157678.png)
 
 **小结：空指针异常情况**
 
@@ -976,3 +970,135 @@ public class TestNullPointerException {
 		System.out.println(arr3[2].toString());
 ```
 
+
+
+## JVM存储位置分配
+
+### 总结（只要看这个就行）
+
+1. 凡是通过**new出来**的东西，都放在**堆**中。
+
+   全局变量因为放在类里面，在使用的时候需要先将类对象new出来，才能使用其中的全局变量，所以`全局变量也是放在堆中的`。
+
+2. **栈**里面放的是**局部变量**，包括创建出来的类对象，以及各种基本数据类型的变量。
+
+3. **方法区里的常量池**存储的是**常量**以及**静态变量**
+
+示例代码：
+
+```java
+class Fruit {
+    static int x = 10;
+    static BigWaterMelon bigWaterMelon_1 = new BigWaterMelon(x);
+
+    int y = 20;
+    BigWaterMelon bigWaterMelon_2 = new BigWaterMelon(y);
+     
+    public static void main(String[] args) {
+        final Fruit fruit = new Fruit();
+     
+        int z = 30;
+        BigWaterMelon bigWaterMelon_3 = new BigWaterMelon(z);
+     
+        new Thread() {
+            @Override
+            public void run() {
+                int k = 100;
+                setWeight(k);
+            }
+     
+            void setWeight(int waterMelonWeight) {
+                fruit.bigWaterMelon_2.weight = waterMelonWeight;
+            }
+        }.start();
+    }
+
+}
+
+class BigWaterMelon {
+    public BigWaterMelon(int weight) {
+        this.weight = weight;
+    }
+
+    public int weight;
+
+}
+```
+
+内存分配图：
+
+![](.\images\20190226181808168.png)
+
+同一种颜色代表变量和对象的引用关系。
+
+由于方法区和堆内存的数据都是线程间共享的，所以线程Main Thread，New Thread和Another Thread都可以访问方法区中的静态变量以及访问这个变量所引用的对象的实例变量。
+
+**ps：方法区存储的都是只加载一次的。**
+
+**栈内存中每个线程都有自己的虚拟机栈、程序计数器和本地方法栈，每调用一个方法，都会在虚拟机栈中创建一个栈帧，栈帧之间的数据互不相通（局部变量）**，每一个栈帧之间的数据就是线程独有的了。
+
+比如线程New Thread中setWeight方法是不能访问线程Main Thread中的局部变量bigWaterMelon_3，setWeight()方法也不能访问run()方法中定义的变量k。
+
+但是我们发现setWeight却访问了同为Main Thread局部变量的“fruit”，这时为什么呢？因为"fruit"被声明为final了。
+
+当"fruit"被声明为final后，"fruit"会作为New Thread的构造函数的一个参数传入New Thread，也就是堆内存中Fruit$1对象中的实例变量val$fruit会引用"fruit"引用的对象，从而New Thread可以访问到Main Thread的局部变量"fruit"。
+
+> **当方法执行完毕之后，栈中的数据会被自动释放；**
+>
+> **堆中的数据不会自动释放，而是在某一时刻，Java虚拟机的回收机制来回收，才会被释放。**
+
+---
+
+### 具体解释（看上面的即可，上面看不懂再看这个）
+
+
+
+
+
+---
+
+## 成员变量与局部变量的区别与联系
+
+### 不同点：
+
+#### ①类中声明的位置不同：
+
+属性：声明在类内，方法外的变量
+
+局部变量：声明方法、构造器内部的变量
+
+#### ②在内存中分配的位置不同：
+
+属性：随着对象的创建，存储在堆空间中。
+
+局部变量：存储在栈空间中。
+
+#### ③生命周期：
+
+属性：随着对象的创建而创建，随着对象的消亡而消亡。（堆空间中的数据，是在某一个时刻，被java垃圾回收机制进行回收）
+
+局部变量：随着方法对应的栈帧入栈，局部变量会在栈中分配；随着方法对应的栈帧出栈，局部变量消亡。
+
+#### ④作用域：
+
+属性：在整个类的内部都是有效的
+
+局部变量：仅限于声明此局部变量所在的方法（或构造器、代码块）中。
+
+#### ⑤是否可以有权限修饰符进行修饰：
+
+都有哪些权限修饰符：public、protected、缺省、private。（用于表明所修饰的结构可调用的范围大小）
+
+属性：是可以使用权限修饰符进行修饰的。
+
+局部变量：不能使用任何权限修饰符进行修饰的。
+
+#### ⑥是否有默认值：
+
+属性：都有默认初始化值
+
+​	意味着，如果没有给属性进行显示初始化赋值，则会有默认初始化值。
+
+局部变量：都没有默认初始化值
+
+​	意味着，在使用局部变量之前，必须进行显式地赋值，否则报错。
