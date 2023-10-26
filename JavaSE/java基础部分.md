@@ -1167,3 +1167,81 @@ public class MathTools {
 以上的两种方法并不是重载方法，而是会被认为同种方法，会报错。
 
 **编译器会根据方法名以及形参列表来判断当前调用的是哪一个方法**，而不会去考虑返回值与修饰符。
+
+---
+
+## 可变个数的形参
+
+使用场景：当出现方法形参的类型确定，但是形参数量不是确定的情况时，就可以使用可变个数的形参方法。
+
+### **语法：**
+
+```java
+方法名(参数的类型名 ...参数名)
+```
+
+举例：
+
+```java
+//JDK5.0以前，采用数组形参来定义方法，传入多个同一类型变量
+public static void test(int a, String[] books);
+
+//JDK5.0及以后，采用可变个数形参来定义方法，传入多个同一类型变了
+public static void test(int a, String... books);
+```
+
+### 注意点：
+
+> 1. 可变参数方法的使用与方法参数部分使用数组是一致的，二者不能同时声明，否则报错。
+>
+> 2. 可变参数：方法参数部分指定类型的参数个数是可变多个：0个，1个或多个，也可以传入数组类型。
+>
+> 3. 数组类型参数的方法只能传入数组类型的实参，不能传入一个或多个数量的实参。
+>
+>    例如：
+
+```java
+public class ArgsTest{
+    @Test
+    public void test(){
+        int[] ints = new int[]{3, 4, 6, 9, 11};
+        //可变个数的形参方法可以传入数组类型
+    	print(ints);
+    } 
+    
+    public void print(int... nums){}
+    
+//    public void print(int[] nums){}
+//	  这两个方法不构成重载方法，一起声明会报错
+    
+}
+
+
+public class ArgsTest2{
+    @Test
+    public void test(){
+        //报错，因为形参是数组类型的方法只能传入数组
+        print(1, 4, 5, 7);
+    }
+    
+    public void print(int[] nums){}
+    
+}
+```
+
+> 4. 方法的参数部分有可变形参，需要放在形参声明的最后。
+>
+> 5. 在一个方法的形参中，最多只能声明一个可变个数的形参。
+>
+> 6. 在使用可变个数的形参时，只需要将其看作是数组类型即可。
+>
+>    例如：
+
+```
+public void print(int... nums){
+    for (int i = 0; i < nums.length; i++) {
+        System.out.println(nums[i]);
+    }
+}
+```
+
