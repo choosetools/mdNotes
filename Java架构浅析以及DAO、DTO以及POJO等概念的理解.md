@@ -1,20 +1,114 @@
-## 浅析Java中dto、dao、service、controller的四层结构
+## 浅析Java项目架构体系
 
-一般开发大型项目时会将所有的功能细分为许多小模块，每个模块都有dto、dao、service和controller层，有些模块还会加入validate层。
+### Controller层：
 
-先来看一个小模块的目录结构：
+本层定义接口并调用service层接口方法完成业务逻辑。
 
-<img src=".\images\20180724194228397.png">
+功能：
 
-首先，最底层的就是**dto层**，（这里的dto层并不严谨，包含了dto、vo、po）dto就是所谓的model，dto中定义的是实体类，也就是.class文件，改文件中包含实体类的属性和对应属性的get、set方法；
+接受前端请求，调用service，接受service返回的数据，之后响应给客户端。
 
- 其次，是**dao层**（dao层的文件习惯以*Mapper命名），dao层会调用dto层，dao层中会定义实际使用到的方法，比如增删改查。一般在dao层下还会有个叫做sqlmap的包，该包下有xml文件，文件内容正是根据之前定义的方法而写的SQL语句；
+### Service层：
 
-之后，到了**service层**，service层会调用dao层和dto层，service层也会对数据进行一定的处理，比如条件判断和数据筛选等等；
+service层为业务服务，调用mapper层并提供给controller层使用，间接和数据库打交道。
 
-最后，是**controller层**，controller层会调用前面三层，controller层一般会和前台的js文件进行数据的交互，controller层是前台数据的接收器，后台处理好的数据也是同controller层传递到前台显示的。
+项目结构包括两部分，接口文件和接口实现类文件，接口文件中定义在controller层中调用的service层方法；接口实现类文件中完成service层接口中定义的方法的实现。
 
+*注意：这里接口实现类中方法的实现是指业务逻辑的实现，可能有些方法并不能在实现类里完成真正意义上的实现，还需要在mapper层文件完成其真正意义上的实现（主要是和数据库交互）。*
 
+### Mapper层：
+
+mapper层为操作数据库的一层。
+
+mapper层分为两部分，mapper接口层和mapper.xml层。
+
+mapper接口层：
+
+定义在service接口中没有完成真正实现，需要通过书写SQL语句才能完成其功能的方法。
+
+mapper.xml层：
+
+（1）配置通用查询映射结果：
+
+> ```xml
+> <?xml version="1.0" encoding="UTF-8"?>
+> <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+> <mapper namespace="com.nayun.cultourism.mapper.CultureTourismSituationMapper">
+> 
+>     <!-- 通用查询映射结果-->
+>     <resultMap id="cultureTourismResultMap" type="com.nayun.cultourism.entity.CultureTourismSituation">
+>         <result column="id" property="id"/>
+>         <result column="name" property="name"/>
+>         <result column="annual_flow" property="annualFlow"/>
+>         <result column="position" property="position"/>
+>         <result column="illustration" property="illustration"/>
+>         <result column="pic_url" property="picUrl"/>
+>         <result column="creat_user" property="createUser"/>
+>         <result column="creat_dept" property="creatDept"/>
+>         <result column="creat_time" property="creatTime"/>
+>         <result column="update_user" property="updateUser"/>
+>         <result column="update_time" property="updateTime"/>
+>         <result column="status" property="status"/>
+>         <result column="is_deleted" property="isDeleted"/>
+>         <result column="address" property="address"/>
+>     </resultMap>
+> ```
+
+*注意：*
+
+- *namespace 和 resultMap 的 type 要指向正确的地址，namespace指向mapper文件，type指向实体类。*
+- *column为数据库中的表字段，property为实体类中属性名（一一对应）。*
+
+*关于column以及property命名：*
+
+- *column为数据库表字段名，小写，各单词之间用下划线分割。*
+- *property为实体类中属性名，命名一般符合驼峰形。*
+
+（2）完成mapper接口中方法的SQL语句实现：
+
+*在这个模块中就是书写具体的SQL语句了，将查询结果映射在方法中的resultMap中，id为在mapper接口中定义的方法名。*
+
+```xml-dtd
+<!--查询所有景点数据-->
+    <select id="findAll" resultMap="cultureTourismResultMap">
+        select * from cockpit_tourist_spots where is_deleted = 0
+    </select>
+
+    <select id="getList" resultMap="cultureTourismResultMap">
+        select * from cockpit_tourist_spots where is_deleted = 0
+        <if test="cultureTourismSituation.name != null and cultureTourismSituation.name != ''">
+            and name LIKE CONCAT('%',#{cultureTourismSituation.name},'%')
+        </if>
+    </select>
+```
+
+### Entity层：
+
+也就是所谓的model层，也称为pojo层，是数据库在项目中的类，该文件包含实体类的属性和对应属性的set、get方法。
+
+实体类中属性同数据库表字段一一对应，对于相应的set、get方法一般不需要书写，实体类上引入@Data注解，会自动为实体类注入get、set以及toString方法，减少代码量。
+
+### VO层：
+
+视图对象，用于展示层，把某个指定页面的所有数据封装起来，方便前端获取数据，后端将前端需要 的数据做整合，打包成一个类。
+
+使用场景：
+
+如果在前端页面需要展示经过某些数据库操作才能展示的特定数据，一般在vo层中把操作过程中涉及的数据进行封装，方便前端获取。并在controller层定义对应接口时把返回类型规定为vo类。
+
+### DTO层：
+
+数据对象传输层，负责屏蔽后端实体层，将UI要的数据进行重新定义和封装。因为后端在实际业务场景中需要[存储](https://auth.huaweicloud.com/authui/saml/login?xAccountType=csdndev_IDP&isFirstLogin=false&service=https%3A%2F%2Factivity.huaweicloud.com%2Ffree_test%2Findex.html%3Futm_source%3Dhwc-csdn%26utm_medium%3Dshare-op%26utm_campaign%3D%26utm_content%3D%26utm_term%3D%26utm_adplace%3DAdPlace070851)大量数据，而用户需要的数据只是一部分，为了快速获取用户需要的数据，应该把用户经常用到的数据在dto层中进行封装，在调用服务层时，只需要调用一次便可完成所有的逻辑操作。
+
+### 运行流程：
+
+1. 控制层接收前端请求，调用对应的业务层接口方法
+2. 业务层实现类去实现业务层接口
+3. 业务层实现类的方法内调用数据层的接口
+4. 数据层实现文件（mapper.xml）实现数据层接口
+5. 然后处理结果层层返回
+
+总的来说这样每层做什么的分类只是为了使业务逻辑更加清晰，写代码更加方便，所以有时候也需要根据具体情况来，但是大体的都是这样处理的，因为它其实就是提供一种规则，让你把相同类型的代码放在一起，这样就形成了层次，从而达到分层解耦、复用、便于测试和维护的目的。
 
 ---
 
