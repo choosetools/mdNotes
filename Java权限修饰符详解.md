@@ -225,3 +225,100 @@ public class Son4{
 }
 ```
 
+
+
+
+
+## 子父类中有同名的属性特殊情况
+
+1. 方法的重写意味着覆盖，在子类中就不会再有被重写的方法能够被调用，<font color="red">**被调用的同名方法一定是重写后的方法**</font>。
+
+2. 对于同名属性来说则不同：
+
+   属性不会被重写，就算有同名的属性也不会出现覆盖的情况，父类中的同名属性依旧是存在的，<font color="red">**使用父类中的方法访问的同名属性一定是父类中的属性**</font>。
+
+   如果父类中的方法访问了父类中的属性，并且子类中没有对该方法重写，使用子类对象去调用的时候，访问的依旧是父类中的属性，而不是子类中同名的属性。
+
+**案例1：**
+
+父子类：
+
+```java
+class Parent{
+    private String name = "Parent";
+    public String getName() {
+        return name;
+    }
+}
+class Son extends Parent{
+	private String name = "Son";
+	public void test(){
+        System.out.println(this.getName());
+        System.out.println(super.getName());
+    }
+}
+```
+
+测试类：
+
+```java
+public class SuperTest {
+    @Test
+    public void test(){
+        Son son  = new Son();
+        son.test();
+    }
+}
+```
+
+输出结果：
+
+<img src="C:\Users\14036\Desktop\markdown笔记\JavaSE\images\Snipaste_2023-11-07_20-58-56.png" align="left">
+
+这里的this.或者super.并不会影响结果，原因是子类中并没有去声明getName()方法，那么无论this.还是super.都会去Parent类中寻找getName()方法。
+
+并且由于属性不会被覆盖，在父类中使用的getName()方法中访问的name属性根据就近原则实际上是父类中的name属性。
+
+
+
+**案例2：**
+
+父子类：
+
+```java
+class Parent{
+    public void method(){
+        System.out.println("父类中的method方法");
+    }
+
+    public void print(){
+        method();
+    }
+}
+
+class Son extends Parent{
+    public void method(){
+        System.out.println("子类中的method方法");
+    }
+}
+```
+
+测试类：
+
+```java
+public class SuperTest {
+    @Test
+    public void test(){
+        Son son  = new Son();
+        son.print();
+    }
+}
+```
+
+运行结果：
+
+<img src="C:/Users/14036/Desktop/markdown笔记/JavaSE/images/Snipaste_2023-11-07_21-06-22.png" align="left">
+
+这里使用子类引用调用了继承于父类的print()方法，但是为什么这里实际上调用的method()方法却是子类中的呢？
+
+原因就在于方法的重写，会覆盖掉原本父类中的被重写方法，子类中就找到了继承来的method()方法，所以使用子类对象调用的print()方法实际上调用的是重写的method()方法。
