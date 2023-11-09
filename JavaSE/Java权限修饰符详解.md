@@ -231,89 +231,79 @@ public class Son4{
 
 ## 子父类中有同名的属性特殊情况
 
-1. 方法的重写意味着覆盖，在子类中就不会再有被重写的方法能够被调用，<font color="red">**被调用的同名方法一定是重写后的方法**</font>。
+子父类同名属性和方法之间处理有些区别：
 
-2. 对于同名属性来说则不同：
+若子父类中有同名的属性，在访问时，如何确定访问的是哪一个类中的属性？
 
-   属性不会被重写，就算有同名的属性也不会出现覆盖的情况，父类中的同名属性依旧是存在的，<font color="red">**使用父类中的方法访问的同名属性一定是父类中的属性**</font>。
+1. > <font color="red">**通过`对象.属性`的方式访问的属性，由该引用变量所属的类决定。**</font>属于哪一个类，依据就近原则访问的就是哪一个类中的属性。
 
-   如果父类中的方法访问了父类中的属性，并且子类中没有对该方法重写，使用子类对象去调用的时候，访问的依旧是父类中的属性，而不是子类中同名的属性。
+案例：
 
-**案例1：**
-
-父子类：
-
-```java
-class Parent{
-    private String name = "Parent";
-    public String getName() {
-        return name;
-    }
-}
-class Son extends Parent{
-	private String name = "Son";
-	public void test(){
-        System.out.println(this.getName());
-        System.out.println(super.getName());
-    }
-}
 ```
+public class Person{
+    public int age = 1;
+}
 
-测试类：
+public class Student extends Person{
+    public int age = 2;
+}
 
-```java
-public class SuperTest {
-    @Test
+//测试类：
+public class PolymorphismTest {
+   @Test
     public void test(){
-        Son son  = new Son();
-        son.test();
+        Person person = new Student();
+        System.out.println(person.age);
+        
+        Student student = (Student) person;
+        System.out.println(student.age);
     }
 }
-```
-
-输出结果：
 
 ```
-Parent
-Parent
+
+运行结果：
+
+```
+1
+2
 ```
 
-这里的this.或者super.并不会影响结果，原因是子类中并没有去声明getName()方法，那么无论this.还是super.都会去Parent类中寻找getName()方法。
+Person类与Student类中有同名的属性age，使用对象.属性的方式访问类中的属性，与对象所属的类有关。
 
-并且由于属性不会被覆盖，在父类中使用的getName()方法中访问的name属性根据就近原则实际上是父类中的name属性。
+本例中，先使用Person类的引用指向了Student类对象，之后通过向下转型，让person强转转换成了Student类。
+
+所以，先获取到的是Person类中的age属性，后由于向下转型，转换成了Student类，获取到的就是Student类中的age属性。
 
 
 
-**案例2：**
+2. > <font color="red">**通过`对象.方法名`的方式执行类中的方法，方法去访问的属性，由执行的方法所属的类决定。**</font>方法属于哪一个类，依据就近原则，访问的就是哪一个类中的属性。
 
-父子类：
+案例1：
 
 ```java
-class Parent{
-    public void method(){
-        System.out.println("父类中的method方法");
+public class Person{
+    public int age = 1;
+    
+    public int getAge() {
+        return age;
     }
+}
+public class Student extends Person{
+    public int age = 2;
 
-    public void print(){
-        method();
+    @Override
+    public int getAge() {
+        return age;
     }
 }
 
-class Son extends Parent{
-    public void method(){
-        System.out.println("子类中的method方法");
-    }
-}
-```
-
-测试类：
-
-```java
-public class SuperTest {
-    @Test
-    public void test(){
-        Son son  = new Son();
-        son.print();
+//测试类：
+public class PolymorphismTest {
+	@Test
+    public void test5(){
+        Person person = new Student();
+        System.out.println(person.getAge());
     }
 }
 ```
@@ -321,9 +311,57 @@ public class SuperTest {
 运行结果：
 
 ```
-子类中的method方法
+2
 ```
 
-这里使用子类引用调用了继承于父类的print()方法，但是为什么这里实际上调用的method()方法却是子类中的呢？
+Person类的引用指向了Student类的对象，在Student类中重写了Person中的getAge()方法，所以使用person.getAge()实际上调用的是Student类中的getAge()方法，根据就近原则，此时在方法中访问的age属性那实际上就是Student类中的age属性了。
 
-原因就在于方法的重写，会覆盖掉原本父类中的被重写方法，子类中就找到了继承来的method()方法，所以使用子类对象调用的print()方法实际上调用的是重写的method()方法。
+
+
+案例2：
+
+```
+public class Animal {
+    public int age = 3;
+}
+
+public class Person extends Animal{
+    public int getAge() {
+        return age;
+    }
+}
+
+public class Student extends Person{
+    public int age = 2;
+}
+```
+
+测试类：
+
+```
+public class PolymorphismTest {
+    @Test
+    public void test(){
+        Person person = new Student();
+        System.out.println(person.getAge());
+    }
+}
+```
+
+运行结果：
+
+```
+3
+```
+
+这里的运行结果为什么是3呢？
+
+原因：
+
+在Student类中没有对Person类中的getAge()方法进行重写，实际调用的就是Person类中的getAge()方法，即依据就近原则，getAge()方法访问的age属性即为Person类中的age属性，但是Person类中没有声明的age属性，其age属性来源于Animal类中继承而来的，所以访问即是继承而来的age属性。
+
+
+
+故：
+
+**不要在子父类中声明同名的属性！**
