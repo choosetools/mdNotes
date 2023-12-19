@@ -313,23 +313,92 @@ String str6 = new String(bytes,"GBK");
 
 #### 2.2、与查找有关的方法
 
+* **`boolean contains(String s)`**：是否包含xxx。
+* **`int indexOf(String str)`**：在从前往后查找字符串str，即如果有返回第一次出现的下标（从0开始），要是没有返回-1。
+* **`int indexOf(String str, int fromIndex)`**：返回指定子字符串在此字符串中第一次出现处的索引，从指定的索引开始。
+* **`int lastIndexOf(String str)`**：在当前字符串中从后往前查找str字符串，如果有则返回第一次查找到的位置下标（相对于全局字符串而言），如果没有返回-1。
+* **`int lastIndexOf(String str, int fromIndex)`**：在当前字符串中从指定位置开始从后往前查找str字符串，如果有则返回第一次查找到的位置下标，如果没有返回-1。
 
+案例：
+
+```java
+//contains()，是否包含
+String s1 = "helloworldhelloworldhelloworld";
+System.out.println(s1.contains("elo"));//false
+
+//索引从0开始
+System.out.println(s1.indexOf("e"));//1
+//从指定索引开始检索，返回的值是该字符串位于全局字符串的索引
+System.out.println(s1.indexOf("e", 5));//11
+
+//从指定的索引从后往前反向搜索
+System.out.println(s1.lastIndexOf("e"));//21
+//从指定的索引从后往前反向搜索，返回指定字符串第一次出现处的索引，注意是相对于全部字符串从左至右的索引值
+System.out.println(s1.lastIndexOf("e",19));//11
+```
 
 #### 2.3、与截取有关的方法
 
+* **`String substring(int beginIndex)`**：返回一个新的字符串，它是此字符串的从beginIndex开始（包括beginIndex位置的字符）截取到最后一个子字符串。
+* **`String substring(int beginIndex, int endIndex)`**：返回一个新的字符串，它是此字符串从beginIndex开始截取到endIndex索引位置（包括beginIndex，不包括endIndex）的一个子字符串。
 
+案例：
 
-#### 2.4、与char有关的方法
+```java
+String s1 = "helloworldhelloworldhelloworld";
+//截取后的字符串包含beginIndex索引位置的字符
+System.out.println(s1.substring(17));//rldhelloworld
 
+//从beginIndex开始截取到endIndex（不包含endIndex位置的字符）
+//相当于是beginIndex截取到endIndex-1.
+System.out.println(s1.substring(6, 11));//orldh
+```
 
+在Java中，凡是涉及到一个区间的，全是**左闭右开**区间，即包含左边，但不包含右边。比如Math.random()随机数，其区间就是[0, 1)区间，左闭右开区间。
+
+#### 2.4、与char字符有关的方法
+
+* **`char charAt(index)`**：返回index索引位置的字符。
+* **`char[] toCharArray()`**：将此字符串转换为一个新的字符数组返回。
+* **`static String valueOf(char[] data)`**：将char数组转换成String字符串，底层使用的是new的方式创建字符串。
+* **`static String valueOf(char[] data, int offset, int count)`**：将data数组转换成字符串，从索引offset开始，使用count数目的字符进行创建。（注意这里并不是endIndex，而是count，表示数目）
+* **`static String copyValueOf(char[] data)`**：与valueOf()类似。
+* **`static String copyValueOf(char[] data, int offset, int count)`**：与valueOf()类似。
+
+案例：
+
+```java
+char[] chars = new char[]{'1', '2','3','4','5','6','7','8','9','a','b','c','d'};
+String s1 = String.valueOf(chars);
+String s2 = String.valueOf(chars, 3, 9);
+String s3 = String.copyValueOf(chars);
+String s4 = String.copyValueOf(chars, 3, 9);
+
+System.out.println(s1);//123456789abcd
+System.out.println(s2);//456789abc
+System.out.println(s3);//123456789abcd
+System.out.println(s4);//456789abc
+
+System.out.println(s1 == s2);//false
+System.out.println(s3 == s4);//false
+System.out.println(s1.equals(s2));//false
+System.out.println(s3.equals(s4));//false
+
+System.out.println(s1.charAt(6));//7
+```
 
 #### 2.5、与开头、结尾有关的方法
 
-
+* **`boolean startsWith(String prefix)`**：测试此字符串是否以指定的前缀开始。
+* **`boolean startsWith(String prefix, int toffset)`**：测试此字符串从指定索引开始的子字符串是否以指定前缀开始。
+* **`boolean endsWith(String suffix)`**：测试此字符串是否以指定的后缀结束。
 
 #### 2.6、与替换有关的方法
 
-
+* **`String replace(char oldChar, char newChar)`**：返回一个新的字符串，它是通过用newChar替换此字符串中出现的所有oldChar得到的。
+* **`String replace(CharSequence target, charSequence replacement)`**：使用指定的字面量替换序列replacement替换此字符串中所有匹配字面值目标序列target的子字符串。
+* **`String replaceAll(String regex, String replacement)`**：使用给定的replacement替换此字符串所有匹配给定的正则表达式regex的子字符串。
+* **`String replaceFirst(String regex, String replacement)`**：使用给定的replacement替换此字符串匹配给定的正则表达式regex的第一个子字符串。
 
 ### 3、String与其他结构之间的转换
 
