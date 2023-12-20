@@ -603,3 +603,474 @@ System.out.println(str);
 
 
 
+# 与时间日期有关的API
+## JDK8之前的（未改良）
+
+### java.lang.System
+
+* **`public static long currentTimeMillis()`**：用来返回当前时间与`1970年1月1日0时0分0秒`之间以毫秒为单位的时间差。
+
+> **该方法常用来计算时间差。**
+
+计算世界时间的主要标准有：
+
+* UTC(Coordinated Universal Time)
+* GMT(Greenwich Mean Time)
+* CST(Central Standard Time)
+
+> 在国际无线电通信场合，为了统一起见，使用一个统一的时间，称为通用协调时（UTC，Universal Time Coordinated）。UTC与格林尼治平均时（GMT）一样，都与英国伦敦的本地时相同。这里UTC与GMT含义相同。
+
+
+
+### java.util.Date
+
+> 该类表示特定的瞬间，精确到毫秒；通常用它来获取当前时间或构造时间。
+
+* **构造器**：
+  * **`Date()`**：使用无参构造器创建的对象表示获取本地当前的时间。
+  * **`Date(long 毫秒数)`**：把毫秒值换算成日期时间对象。
+* **常用方法**：
+  * **`getTime()`**：返回自1970年1月1日 00:00:00 GMT以来，到此Date对象所代表的时间差，返回的是毫秒数。
+  * **`toString()`**：该方法会将Date对象转换成以下形式的字符串：`dow mon dd hh:mm:ss zzz yyy`。其中：dow表示的是星期几（Sun, Mon, Tue, Wed, Thu, Fri, Sat），zzz表示的是时间的标准。
+
+案例：
+
+```java
+//创建一个基于当前系统时间的Date实例
+Date date1 = new Date();
+
+//创建一个制定时间戳的Date实例
+Date date2 = new Date(1503066032874L);
+
+//getTime()用于返回date表示的时间距离1970.1.1 00:00:00的时间差
+System.out.println(date1.getTime());//1703066099457
+System.out.println(date2.getTime());//1503066032874
+
+//将Date转换成 dow mon dd hh:mm:ss zzz yyy形式的字符串
+System.out.println(date1);//Wed Dec 20 17:54:59 HKT 2023
+System.out.println(date2);//Fri Aug 18 22:20:32 HKT 2017
+```
+
+
+
+### java.sql.Date
+
+> java.sql.Date主要针对**SQL语句**使用，它输出时只包含日期而没有时间部分。
+
+`java.sql.Date`是`java.util.Date`的子类，所以java.sql.Date中继承了来自于java.util.Date中的方法。
+
+主要了解一下它与java.util.Date之间的区别：
+
+**构造器**：
+
+java.sql.Date中只拥有一个未过时的构造器：
+
+* **`Date(long date)`**：使用给定毫秒时间值构造一个Date对象。
+
+即java.sql.Date类对象只能通过给定毫秒值来创建，而不能像java.util.Date那样可以去创建当前时间的date对象。
+
+**方法：**
+
+java.sql.Date类与java.util.Date类在方法区别在于，toString()方法的不同。
+
+* **`toString()`**：将date对象转换成`yyyy-mm-dd`形式的字符串输出。
+
+sql下的Date类中的toString()方法，会将创建出来的date对象转换成yyyy-mm-dd形式，例如2023-12-20，虽然输出的样式只包含年月日，但是date对象实际是包含精确时间的，只不过toString()时不会输出罢了。
+
+案例：
+
+```java
+java.sql.Date date = new java.sql.Date(1703066099457L);
+
+System.out.println(date);//2023-12-20
+System.out.println(date.getTime());//1703066099457
+```
+
+
+
+#### 两个Date之间的区别与相互转换
+
+在java环境中使用的Date时间类通常是java.util.Date，而数据库中声明变量类型为Date时，对应的是java.sql.Date。
+
+> **当在java代码中获取到`java.util.Date`时间对象后，需要转换为`java.sql.Date`类才可以放入数据库中。**
+
+
+
+
+
+**utile.Date与sql.Date之间的相互转换**
+
+```java
+Date utilDate = new Date();//util.Date
+
+//util.Date转sql.Date
+java.sql.Date sqlDate = new java.sql.Date(utilDate.getTime());
+
+//sql.Date转util.Date
+utilDate = new Date(sqlDate.getTime());
+```
+
+两个Date都包含着使用时间戳创建对象的构造器，均可使用两个类的getTime()方法获取时间戳，从而转换成另一个对象。
+
+### java.text.SimpleDateFormat
+
+> `java.text.SimpleDateFormat`类是一个不与语言环境有关的方式来**格式化**和**解析**日期的类。
+>
+> **格式化**：日期 → 文本
+>
+> **解析**：文本 → 日期
+>
+> 
+>
+> 该类的作用就在于制定日期类型的格式，将Date类型转换成指定格式的字符串，或将日期类型的字符串转换成Date类型。
+
+
+
+* **构造器**：
+  * **`SimpleDateFormat()`**：使用默认的日期格式创建SimpleDateFormat对象。
+  * **`SimpleDateFormat(String pattern)`**：使用程序员指定的日期格式类型创建SimpleDateFormat对象。
+
+* **方法**：
+  * **格式化方法**：
+    * **`public String format(Date date)`**：将Date类型转换成SimpleDateFormat对象指定格式的字符串类型。
+  * **解析方法**：
+    * **`public Date parse(String source) throws ParseException`**：将字符串转换成Date类型，注意，要求**字符串必须与SimpleDateFormat对象规定的格式一致，否则报ParseException解析异常**。
+
+在日期时间类中，可以使用字母来表示所要显示的时间，从而设置指定格式：
+
+![1572599023197](.\images\1572599023197.png)
+
+使用案例：
+
+```java
+//使用默认的模式和语言环境创建对象，这个时候的格式是默认的
+Date date = new Date();
+SimpleDateFormat s1 = new SimpleDateFormat();
+System.out.println(s1.format(date));
+
+//创建指定格式的SimpleDateFormat对象
+SimpleDateFormat s2 = new SimpleDateFormat("yyyy-MM-dd E z kk:mm:ss");
+System.out.println(s2.format(date));
+
+Date date2;
+try {
+    //将指定格式的字符串转换成Date类型
+    date2 = s1.parse("2023/11/05 下午3:12");
+} catch (ParseException e) {
+    throw new RuntimeException(e);
+}
+System.out.println(date2);
+
+try {
+    //此时就会报异常了，因为字符串时间格式不符合SimpleDateFormat设置的格式
+    date2 = s1.parse("23-11-05 下午03:12");
+} catch (ParseException e) {
+    throw new RuntimeException(e);
+}
+System.out.println(date2);
+```
+
+输出结果：
+
+<img src=".\images\image-20231220185223801.png" align="left">
+
+由上述结果可知，**SimpleDateFormat默认的时间格式为：**
+
+```java
+yyyy/MM/dd ah:mm
+```
+
+如：
+
+```
+2023/12/20 下午6:50
+```
+
+
+
+### java.util.Calendar（日历）
+
+> Date类的API大部分被废弃了，替换为Calendar。
+>
+> `Calendar`类是Java用于处理日期和时间的**`抽象类`**，它提供了一种独立于特定日历系统的方式来处理日期和时间。通过Calendar类，你可以执行许多常见的日期和时间操作，如计算日期差异、添加或减去时间单位等。
+>
+> **Calendar可以随意地对日期时间进行添加、减去操作，能够得到我们想要的具体的时间。**
+>
+> 但是注意，由于Calendar无法指定时间，所以我们一般需要将Calendar与Date类和SimpleDateFormat一起搭配使用。
+
+由于Calendar是一个抽象类，所以我们无法获取Calendar的对象，只能去创建Calendar的子类对象。可以通过静态方法getInstance()去获取；由于Calendar只有一个子类：java.util.GregorianCalendar，也可以通过new子类的方式直接创建。
+
+**获取Calendar实例的方法**：
+
+* **`public static Calendar getInstance()`**方法（推荐）
+
+![image-20220123184906903](C:\Users\14036\Desktop\markdown笔记\JavaSE\images\image-20220123184906903.png)
+
+* new GregorianCalendar()(不推荐)
+
+无论通过哪一种方式创建的Calendar对象，均是子类GregorianCalendar的对象。
+
+
+
+**Calendar常用的方法：**
+
+一个Calendar的实例是系统时间的抽象表示，可以修改成获取YEAR、MONTH、DAY_OF_WEEK、HOUR_OF_DAY、MINUTE、SECOND等`日历字段`对应的时间值。
+
+在下面方法中，field表示的就是Calendar中的常量，如DAY_OF_WEEK，用这些常量来表示参数的含义。
+
+* **`public int get(int field)`**：返回给定日历字段的值。
+* **`public void set(int field, int value)`**：将给定的日历字段设置为指定的值。
+* **`public void add(int field, int amount)`**：根据日历的规则，为给定的日历字段添加或者减去制定的时间量。
+* **`public final Date getTime()`**：将Calendar对象转换成Date对象。
+* **`public final void setTime(Date date)`**：使用指定的Date对象修改Calendar对象的日期时间。
+
+**field常用的类型：**
+
+![1620277709044](.\images\1620277709044.png)
+
+注意：
+
+* 获取月份时：一月是0，二月是1，以此类推，12月是11。
+* 获取星期时：周日是1，周一是2，以此类推，周六是7。
+
+案例：
+
+```java
+Calendar calendar = Calendar.getInstance();
+System.out.println(calendar.getClass());
+//GregorianCalendar calendar = new GregorianCalendar();
+
+//get()方法
+System.out.println(calendar.get(Calendar.DAY_OF_WEEK));//4
+System.out.println(calendar.get(Calendar.DAY_OF_MONTH));//20
+
+//set()方法
+calendar.set(Calendar.DAY_OF_MONTH, 23);
+System.out.println(calendar.get(Calendar.DAY_OF_MONTH));//23
+
+
+//add(int field, xx)
+calendar.add(Calendar.DAY_OF_MONTH, 3);
+System.out.println(calendar.get(Calendar.DAY_OF_MONTH));//26
+calendar.add(Calendar.DAY_OF_MONTH, -5);
+System.out.println(calendar.get(Calendar.DAY_OF_MONTH));//21
+
+//getTime()方法获取Date类对象
+// Calendar -> Date
+Date date = calendar.getTime();
+System.out.println(date);//Thu Dec 21 21:30:29 HKT 2023
+System.out.println(date.getTime());//1703165429105
+
+//setTime()：将calendar设置成指定date时间的日历对象
+Date date1 = new Date(1303162293363L);
+calendar.setTime(date1);
+```
+
+
+
+### 以上几种类的使用案例
+
+输入年份和月份，输出该月日历。
+
+闰年计算公式：年份可以被4整除但不能被100整除，或者可以被400整除。
+
+<img src="./images/image-20220503120722810.png" alt="image-20220503120722810" style="zoom:67%;" />
+
+```java
+@Test
+public void test7(){
+    //创建一个Scanner对象，用于获取用户输入
+    Scanner scanner = new Scanner(System.in);
+    //提示用户输入年份
+    System.out.print("请输入年份：");
+    int year = scanner.nextInt();
+    int month;
+    //循环获取用户输入的月份
+    while (true){
+        System.out.printf("请输入月份：");
+        month = scanner.nextInt();
+        //判断用户输入的月份是否在1到12之间
+        if (month < 0 || month > 12){
+            System.out.println("信息有误，请重新输入！");
+        }else {
+            break;
+        }
+    }
+
+    //判断当前月是否是2月，是2月要考虑是否是闰年
+    //计算出那个月的1号是星期几
+    //先获取到Date类型，再转换成Calendar类型，因为Calendar类型无法设置指定的时间
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    Date date;
+    try {
+        date = sdf.parse(year + "-" + month + "-" + "01");
+    } catch (ParseException e) {
+        scanner.close();
+        throw new RuntimeException(e);
+    }
+    Calendar calendar = Calendar.getInstance();
+    calendar.setTime(date);
+    int dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK);
+    System.out.println();
+    System.out.println("日   一  二  三  四  五  六");
+    int columnCount = 0;
+    //每个月的天数
+    int numberOfDaysInMonth;
+    //打印出当前月份的1号是星期几
+    for (int i = 1; i < dayOfWeek; i++) {
+        System.out.print("  ");
+        columnCount++;
+    }
+
+    //根据月份判断当前月份的天数
+    if (month == 1 || month == 3 || month == 5 || month == 7 || month == 8 || month == 10 || month == 12){
+        numberOfDaysInMonth = 31;
+    }else if (month == 2){
+        //计算当前年是否为闰年
+        if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0){
+            numberOfDaysInMonth = 29;
+        }else {
+            numberOfDaysInMonth = 28;
+        }
+    }else {
+        numberOfDaysInMonth = 30;
+    }
+    //打印出当前月份的天数
+    for (int i = 1; i <= numberOfDaysInMonth; i++) {
+        System.out.print(i + "  ");
+        columnCount++;
+        //每7个元素换行
+        if (columnCount == 7){
+            columnCount = 0;
+            System.out.println();
+        }
+    }
+```
+
+
+
+## JDK8之后的（改良后）
+
+如果我们可以跟别人说：“我们在183434923423见面”那么再简单不过了。但是我们希望时间与昼夜与四季有关，于是事情就变复杂了。JDK1.0中包含了一个java.util.Date类，但是它的大多数方法已经在JDK1.1中引入Calendar类之后被弃用了。而Calendar并不比Date好多少。它们面临的问题是：
+
+* **可变性**：像日期和时间这样的类应该是类似于String类型，具有不可变性的，我们去修改时间后，实际上获得的应当是新创建的时间、日期，原有的时间日期应当不变才合理。
+* **偏移性**：Date中的年份是从1900开始的，而月份都从0开始，例如当我们使用new Date(yyyy, MM, dd)的方式创建Date对象，实际的年份是1900 + yyyy，实际的月份是MM - 1具有偏移性。
+* **格式化**：格式化只对Date有用，Calendar则不行，之前学习的SimpleDateFormat类只能对Date类型进行格式化，由于Date类的很多方法都被Calendar类替换了，当我们使用时会多了许多步骤去转变日期类型。
+* 此外，它们也不是线程安全的；不能处理闰秒等。
+
+> 闰秒，是指为保持协调世界时接近于世界时时刻，由国际计量局统一规定在年底或年中（也可能在季末）对协调世界时增加或减少1秒的调整。由于地球自转的不均匀性和长期变慢性（主要由潮汐摩擦引起的），会使世界时（民用时）和原子时之间相差超过到±0.9秒时，就把协调世界时向前拨1秒（负闰秒，最后一分钟为59秒）或向后拨1秒（正闰秒，最后一分钟为61秒）； 闰秒一般加在公历年末或公历六月末。
+>
+> 目前，全球已经进行了27次闰秒，均为正闰秒。
+
+总之，对日期和时间的操作一直是Java程序员最痛苦的地方之一。
+
+第三此引入的API是成功的，并且Java8中引入的java.time API已经纠正了过去的缺陷，将来很长一段时间内它都会为我们服务。
+
+
+
+### 本地日期时间：LocalDate、LocalTime、LocalDateTime(用于代替Calendar类)
+
+看名字，我们就大致可以了解到：
+
+> 当我们**只使用日期**时，就可以使用`LocalDate`类
+>
+> 当我们**只使用时间**时，就可以使用`LocalTime`类
+>
+> 当我们**既使用日期也使用时间**，那么就使用`LocalDateTime`类
+
+
+
+|                             方法                             | **描述**                                                     |
+| :----------------------------------------------------------: | ------------------------------------------------------------ |
+|                **`now() `**/ now(ZoneId zone)                | 静态方法，根据当前时间创建对象/指定时区的对象                |
+|                   `of(xx,xx,xx,xx,xx,xxx)`                   | 静态方法，根据指定日期/时间创建对象                          |
+|                getDayOfMonth()/getDayOfYear()                | 获得月份天数(1-31) /获得年份天数(1-366)                      |
+|                        getDayOfWeek()                        | 获得星期几(返回一个 DayOfWeek 枚举值)                        |
+|                          getMonth()                          | 获得月份, 返回一个 Month 枚举值                              |
+|                 getMonthValue() / getYear()                  | 获得月份(1-12) /获得年份                                     |
+|              getHours()/getMinute()/getSecond()              | 获得当前对象对应的小时、分钟、秒                             |
+|   withDayOfMonth()/withDayOfYear() /withMonth()/withYear()   | 将月份天数、年份天数、月份、年份修改为指定的值并返回新的对象 |
+|                  with(TemporalAdjuster  t)                   | 将当前日期时间设置为校对器指定的日期时间                     |
+| plusDays(), plusWeeks(), plusMonths(), plusYears(),plusHours() | 向当前对象添加几天、几周、几个月、几年、几小时               |
+| minusMonths() / minusWeeks() /minusDays()/minusYears()/minusHours() | 从当前对象减去几月、几周、几天、几年、几小时                 |
+|        plus(TemporalAmount t)/minus(TemporalAmount t)        | 添加或减少一个 Duration 或 Period                            |
+|                     isBefore()/isAfter()                     | 比较两个 LocalDate                                           |
+|                      **`isLeapYear()`**                      | 判断是否是闰年（在LocalDate类中声明）                        |
+|              **`format(DateTimeFormatter  t)`**              | 格式化本地日期、时间，返回一个字符串                         |
+|                  `parse(Charsequence text)`                  | 将指定格式的字符串解析为日期、时间                           |
+
+案例：
+
+```java
+LocalDate ld1 = LocalDate.now();
+LocalTime lt1 = LocalTime.now();
+LocalDateTime ldt1 = LocalDateTime.now();
+System.out.println(ld1);//2023-12-20
+System.out.println(lt1);//22:55:44.724570800
+System.out.println(ldt1);//2023-12-20T22:55:44.724570800
+
+LocalDate ld2 = LocalDate.of(2023, 12, 20);
+System.out.println(ld2);//2023-12-20
+LocalTime lt2 = LocalTime.of(14, 35, 12);
+System.out.println(lt2);//14:35:12
+
+System.out.println(ld1.getDayOfMonth());
+//这里就体现了不可变性
+LocalDateTime ldt3 = ldt1.withDayOfMonth(30);
+System.out.println(ldt3);//2023-12-30T22:53:45.135047600
+
+//加上5日
+LocalDate ld3 = ld1.plusDays(5);
+System.out.println(ld3);//2023-12-25
+```
+
+### 瞬时：Instant(用来代替Date类与System类)
+
+**时间戳作用是可以用来保证名称的唯一性。**
+
+Instant：时间线上的一个瞬时点。这可能被用来记录应用程序中的事件时间戳。
+
+* 时间戳是指格林威治时间1970年01月01日00时00分00秒(北京时间1970年01月01日08时00分00秒)起至现在的总秒数。
+
+`java.time.Instant`表示时间线上的一点，而不需要任何上下文信息，例如，时区。概念上讲，`它只是简单的表示自1970年1月1日0时0分0秒（UTC）开始的秒数。`
+
+| **方法**                        | **描述**                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| `now()`                         | 静态方法，返回默认**UTC时区**的Instant类的对象               |
+| `ofEpochMilli(long epochMilli)` | 静态方法，返回在1970-01-01 00:00:00基础上加上指定毫秒数之后的Instant类的对象 |
+| `atOffset(ZoneOffset offset)`   | 结合即时的偏移来创建一个 OffsetDateTime对象，该对象可以转换成其他类型的时间类。 |
+| `toEpochMilli()`                | 返回1970-01-01 00:00:00到当前时间的毫秒数，即为时间戳        |
+
+注意：
+
+使用`Instant.now()`方法获取到的是当前时间**UTC时区**的Instant对象。
+
+若想要获取中国时间的Instant对象，需要使用instant对象中的`atOffset(ZoneOffset offset)`方法去创建`UTC+8`时区的时间对象。
+
+案例：
+
+```java
+Instant instant1 = Instant.now();
+System.out.println(instant1);//2023-12-20T15:14:55.795734800Z
+System.out.println(instant1.toEpochMilli());//1703085295795
+
+//转换成UTC+8时区
+OffsetDateTime odt = instant1.atOffset(ZoneOffset.ofHours(8));
+
+//将OffsetDateTime类对象转换成LocalDateTime对象
+LocalDateTime localDateTime = odt.toLocalDateTime();
+System.out.println(localDateTime);//2023-12-20T23:14:55.795734800
+```
+
+> 中国大陆、中国香港、中国澳门、中国台湾、蒙古国、新加坡、马来西亚、菲律宾、西澳大利亚州的时间与UTC的时差均为+8，也就是UTC+8。
+>
+> **`instant.atOffset(ZoneOffset.ofHours(8));`**
+
+![image-20220406000442908](.\images\image-20220406000442908.png)
+
+### 日期时间格式化：DateTimeFormatter（用来代替SimpleDateFormat）
+
+既然DateTimeFormatter是用来代替SimpleDateFormat的，那么该类肯定是用来对LocalDate、LocalTime以及LocalDateTime实现格式化和解析的。
+
+
+
