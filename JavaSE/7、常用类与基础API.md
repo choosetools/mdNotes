@@ -795,8 +795,6 @@ yyyy/MM/dd ah:mm
 > `Calendar`类是Java用于处理日期和时间的**`抽象类`**，它提供了一种独立于特定日历系统的方式来处理日期和时间。通过Calendar类，你可以执行许多常见的日期和时间操作，如计算日期差异、添加或减去时间单位等。
 >
 > **Calendar可以随意地对日期时间进行添加、减去操作，能够得到我们想要的具体的时间。**
->
-> 但是注意，由于Calendar无法指定时间，所以我们一般需要将Calendar与Date类和SimpleDateFormat一起搭配使用。
 
 由于Calendar是一个抽象类，所以我们无法获取Calendar的对象，只能去创建Calendar的子类对象。可以通过静态方法getInstance()去获取；由于Calendar只有一个子类：java.util.GregorianCalendar，也可以通过new子类的方式直接创建。
 
@@ -804,7 +802,9 @@ yyyy/MM/dd ah:mm
 
 * **`public static Calendar getInstance()`**方法（推荐）
 
-![image-20220123184906903](C:\Users\14036\Desktop\markdown笔记\JavaSE\images\image-20220123184906903.png)
+  不带参数的getInstance()是获取当前时区的当前时间。
+
+![image-20220123184906903](.\images\image-20220123184906903.png)
 
 * new GregorianCalendar()(不推荐)
 
@@ -866,7 +866,9 @@ Date date1 = new Date(1303162293363L);
 calendar.setTime(date1);
 ```
 
-
+> **注意：**
+>
+> 一般使用Calendar搭配SimpleDateFormat一起使用，使用Calendar设置与修改时间，使用SimpleDateFormat获取我们想要的日期格式；也可以使用SimpleDateFormat去创建一个指定的时间，然后再配合Date类与Calendar一起进行操作。
 
 ### 以上几种类的使用案例
 
@@ -978,12 +980,23 @@ public void test7(){
 >
 > 当我们**既使用日期也使用时间**，那么就使用`LocalDateTime`类
 
+当包含时间但是却使用LocalDate类时，就会报错。
 
+同理，当包含日期却使用LocalTime时，就会报错。
+
+即：
+
+* 只有日期时，才可以使用LocalDate；
+
+* 只有时间时，才可以使用LocalTime；
+
+* 否则都使用LocalDateTime。
 
 |                             方法                             | **描述**                                                     |
 | :----------------------------------------------------------: | ------------------------------------------------------------ |
 |                **`now() `**/ now(ZoneId zone)                | 静态方法，根据当前时间创建对象/指定时区的对象                |
 |                   `of(xx,xx,xx,xx,xx,xxx)`                   | 静态方法，根据指定日期/时间创建对象                          |
+|            **`from(TemporalAccessor temporal)`**             | 静态方法。DateTimeFormatter类的parse()方法可以将字符串类型转换成TemporalAccessor类型，使用日期时间类的from()方法可以将该类型转换成日期时间类型。TemporalAccessor接口是日期时间类型的父接口。 |
 |                getDayOfMonth()/getDayOfYear()                | 获得月份天数(1-31) /获得年份天数(1-366)                      |
 |                        getDayOfWeek()                        | 获得星期几(返回一个 DayOfWeek 枚举值)                        |
 |                          getMonth()                          | 获得月份, 返回一个 Month 枚举值                              |
@@ -1070,7 +1083,271 @@ System.out.println(localDateTime);//2023-12-20T23:14:55.795734800
 
 ### 日期时间格式化：DateTimeFormatter（用来代替SimpleDateFormat）
 
-既然DateTimeFormatter是用来代替SimpleDateFormat的，那么该类肯定是用来对LocalDate、LocalTime以及LocalDateTime实现格式化和解析的。
+> 既然DateTimeFormatter是用来代替SimpleDateFormat的，那么该类肯定是用来对LocalDate、LocalTime以及LocalDateTime实现格式化和解析的。
+>
+
+**该类提供了三种格式化方法：**
+
+* 1、（了解）**预定义的标准格式**。如：`ISO_LOCAL_DATE_TIME`、`ISO_LOCAL_DATE`、`ISO_LOCAL_TIME`。这些预定义的标准格式，基本上就是LocalDate类自带的格式。
+
+  注意：ISO_LOCAL_DATE_TIME仅能用于LocalDateTime的对象进行格式化；同理ISO_LOCAL_DATE创建的DateTimeFormatter仅能用于LocalDate对象；ISO_LOCAL_TIME仅能用于LocalTime对象。
+
+使用案例：
+
+```java
+DateTimeFormatter dtf = DateTimeFormatter.ISO_DATE_TIME;
+LocalDateTime ldt = LocalDateTime.now();
+System.out.println(ldt);//2023-12-21T10:09:34.659716100
+
+//使用预定义的格式进行格式化
+String format = dtf.format(ldt);
+System.out.println(format);//2023-12-21T10:09:34.6597161
+```
+
+* 2、（了解）**本地化相关格式**。如：ofLocalizedDateTime(FormatStyle.LONG)
+
+  ```java
+  本地化相关的格式。如：ofLocalizedDateTime()
+  FormatStyle.MEDIUM / FormatStyle.SHORT :适用于LocalDateTime
+  				
+  本地化相关的格式。如：ofLocalizedDate()
+  FormatStyle.FULL / FormatStyle.LONG / FormatStyle.MEDIUM / FormatStyle.SHORT : 适用于LocalDate
+  ```
+
+  案例：
+
+  ```java
+  LocalDateTime ldt = LocalDateTime.now();
+  System.out.println(ldt);//2023-12-21T10:27:29.173008700
+  
+  DateTimeFormatter dtf = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM);
+  System.out.println(dtf.format(ldt));//2023年12月21日 上午10:27:29
+  ```
+
+* 3、（推荐）**自定义的格式。**
+
+| **方**   **法**                                   | **描**   **述**                                     |
+| ------------------------------------------------- | --------------------------------------------------- |
+| **`ofPattern(String pattern)`**                   | 静态方法，返回一个指定字符串格式的DateTimeFormatter |
+| **`format(TemporalAccessor t)`**                  | 格式化一个日期、时间，返回字符串                    |
+| **` TemporalAccessor parse(CharSequence  text)`** | 将指定格式的字符序列解析为一个日期、时间            |
+
+其中，`LocalDate`、`LocalTime`和`LocalDateTime`都是接口`TemporalAccessor`的子接口`Temporal`的**实现类**，故在DateTimeFormatter的format方法中，均可传入这三种类的对象，对这三种时间类型进行格式化。
 
 
 
+在解析时，返回的是TemporalAccessor对象，TemporalAccessor是一个接口，是LocalDate、LocalTime和LocalDateTime的父接口。
+
+**若想将TemporalAccessor类转换成这三种时间日期类，可以调用`LocalDate`、`LocalTime`或`LocalDateTime`的`from()方法`。**但是，需要注意，由于LocalDate只包含日期信息，当使用TemporalAccessor类转换成LocalDate时，该类不能不含时间信息；同理LocalTime只包含时间信息，当使用TemporalAccessor类转换成LocalTime时，该类中不能包含日历信息。
+
+案例：
+
+```
+//日期格式化类
+DateTimeFormatter dtf1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+//日期时间类
+LocalDateTime localDateTime = LocalDateTime.now();
+
+//格式化：日期 -> 字符串
+//由于这里创建的DateTimeFormatter对象其中既包含了日期也包含了时间，所以应当使用LocalDateTime对象
+//如果使用的是日期或时间类，由于不包含另外的信息
+// 报异常UnsupportedTemporalTypeException
+System.out.println(dtf1.format(localDateTime));//2023-12-21 11:06:27
+
+//对于LocalDateTime而言
+//既可以用于只包含日期的格式化
+//也可以用于只包含时间的格式化
+//同时也能用于既包含时间也包含日期的格式化
+DateTimeFormatter dtf2 = DateTimeFormatter.ofPattern("yyyy/MM/dd");
+System.out.println(dtf2.format(localDateTime));//2023/12/21
+
+//格式化2:
+LocalTime localTime = LocalTime.now();
+//报异常，原因在于LocalTime中不包含日期信息，无法进行转换
+//System.out.println(dtf2.format(localTime));
+
+//解析1：字符串 -> 时间类型
+//先转换成TemporalAccessor接口类型，该接口是日期时间类的父接口
+TemporalAccessor temporalAccessor = dtf1.parse("2023-12-21 11:03:53");
+//然后再调用日期时间类的静态方法from()将TemporalAccessor转换成日期时间类
+LocalDateTime localDateTime2 = LocalDateTime.from(temporalAccessor);
+System.out.println(localDateTime2);//2023-12-21T11:03:53
+
+//解析2:异常情况，将包含日期时间的TemporalAccessor转换成只包含日期的类
+//报：DateTimeParseException异常
+//LocalDate localDate = LocalDate.from(temporalAccessor);
+```
+
+
+
+## 其他与日期时间有关的API
+
+**1、指定时区日期时间：ZondId和ZonedDateTime**
+
+- **`ZoneId`**：该类中包含了所有的时区信息，一个时区的ID，如 Europe/Paris
+
+- **`ZonedDateTime`**：一个在ISO-8601日历系统时区的日期时间，如 2007-12-03T10:15:30+01:00 Europe/Paris。
+  - 其中每个时区都对应着ID，地区ID都为“{区域}/{城市}”的格式，例如：Asia/Shanghai等
+
+- 常见时区ID：
+
+```java
+Asia/Shanghai
+UTC
+America/New_York
+```
+
+* 可以通过ZondId获取所有可用的时区ID：
+
+```java
+public class TestZone {
+    @Test
+    public void test01() {
+        //需要知道一些时区的id
+        //Set<String>是一个集合，容器
+        Set<String> availableZoneIds = ZoneId.getAvailableZoneIds();
+        //快捷模板iter
+        for (String availableZoneId : availableZoneIds) {
+            System.out.println(availableZoneId);
+        }
+    }
+
+    @Test
+    public void test02(){
+        ZonedDateTime t1 = ZonedDateTime.now();
+        System.out.println(t1);
+
+        ZonedDateTime t2 = ZonedDateTime.now(ZoneId.of("America/New_York"));
+        System.out.println(t2);
+    }
+}
+```
+
+
+
+
+
+**2、持续日期/时间：Period和Duration**
+
+- **持续时间**：**`Duration`**，用于计算两个“时间”间隔
+- **日期间隔**：**`Period`**，用于计算两个“日期”间隔
+
+```java
+public class TestPeriodDuration {
+    @Test
+    public void test01(){
+        LocalDate t1 = LocalDate.now();
+        LocalDate t2 = LocalDate.of(2018, 12, 31);
+        Period between = Period.between(t1, t2);
+        System.out.println(between);
+
+        System.out.println("相差的年数："+between.getYears());
+        System.out.println("相差的月数："+between.getMonths());
+        System.out.println("相差的天数："+between.getDays());
+        System.out.println("相差的总数："+between.toTotalMonths());
+    }
+
+    @Test
+    public void test02(){
+        LocalDateTime t1 = LocalDateTime.now();
+        LocalDateTime t2 = LocalDateTime.of(2017, 8, 29, 0, 0, 0, 0);
+        Duration between = Duration.between(t1, t2);
+        System.out.println(between);
+
+        System.out.println("相差的总天数："+between.toDays());
+        System.out.println("相差的总小时数："+between.toHours());
+        System.out.println("相差的总分钟数："+between.toMinutes());
+        System.out.println("相差的总秒数："+between.getSeconds());
+        System.out.println("相差的总毫秒数："+between.toMillis());
+        System.out.println("相差的总纳秒数："+between.toNanos());
+        System.out.println("不够一秒的纳秒数："+between.getNano());
+    }
+    @Test
+    public void test03(){
+        //Duration:用于计算两个“时间”间隔，以秒和纳秒为基准
+		LocalTime localTime = LocalTime.now();
+		LocalTime localTime1 = LocalTime.of(15, 23, 32);
+		//between():静态方法，返回Duration对象，表示两个时间的间隔
+		Duration duration = Duration.between(localTime1, localTime);
+		System.out.println(duration);
+
+		System.out.println(duration.getSeconds());
+		System.out.println(duration.getNano());
+
+		LocalDateTime localDateTime = LocalDateTime.of(2016, 6, 12, 15, 23, 32);
+		LocalDateTime localDateTime1 = LocalDateTime.of(2017, 6, 12, 15, 23, 32);
+
+		Duration duration1 = Duration.between(localDateTime1, localDateTime);
+		System.out.println(duration1.toDays());
+    }
+    
+    @Test
+    public void test4(){
+        //Period:用于计算两个“日期”间隔，以年、月、日衡量
+		LocalDate localDate = LocalDate.now();
+		LocalDate localDate1 = LocalDate.of(2028, 3, 18);
+
+		Period period = Period.between(localDate, localDate1);
+		System.out.println(period);
+
+		System.out.println(period.getYears());
+		System.out.println(period.getMonths());
+		System.out.println(period.getDays());
+
+		Period period1 = period.withYears(2);
+		System.out.println(period1);
+
+    }
+}
+```
+
+
+**3、Clock：使用时区提供对当前即时、日期和时间的访问的时钟。**
+
+**4、TemporalAdjuster和TemporalAdjusters**
+
+* **`TemporalAdjuster`** : 时间校正器。有时我们可能需要获取例如：将日期调整到“下一个工作日”等操作。
+* **`TemporalAdjusters`** : 该类通过静态方法(firstDayOfXxx()/lastDayOfXxx()/nextXxx())提供了大量的常用 TemporalAdjuster 的实现。
+
+```java
+@Test
+public void test1(){
+    // TemporalAdjuster:时间校正器
+	// 获取当前日期的下一个周日是哪天？
+	TemporalAdjuster temporalAdjuster = TemporalAdjusters.next(DayOfWeek.SUNDAY);
+	LocalDateTime localDateTime = LocalDateTime.now().with(temporalAdjuster);
+	System.out.println(localDateTime);
+	// 获取下一个工作日是哪天？
+	LocalDate localDate = LocalDate.now().with(new TemporalAdjuster() {
+   	 	@Override
+   	 	public Temporal adjustInto(Temporal temporal) {
+        	LocalDate date = (LocalDate) temporal;
+     	  	if (date.getDayOfWeek().equals(DayOfWeek.FRIDAY)) {
+           		return date.plusDays(3);
+        	} else if (date.getDayOfWeek().equals(DayOfWeek.SATURDAY)) {
+            	return date.plusDays(2);
+        	} else {
+            	return date.plusDays(1);
+        	}
+    	}
+	});
+	System.out.println("下一个工作日是：" + localDate);
+
+}
+```
+
+
+
+## 时间类型之间的转换
+
+| **类**                                                       | **To** **遗留类**                     | **From** **遗留类**         |
+| ------------------------------------------------------------ | ------------------------------------- | --------------------------- |
+| **java.time.Instant与java.util.Date**                        | Date.from(instant)                    | date.toInstant()            |
+| **java.time.Instant与java.sql.Timestamp**                    | Timestamp.from(instant)               | timestamp.toInstant()       |
+| **java.time.ZonedDateTime与java.util.GregorianCalendar**     | GregorianCalendar.from(zonedDateTime) | cal.toZonedDateTime()       |
+| **java.time.LocalDate与java.sql.Time**                       | Date.valueOf(localDate)               | date.toLocalDate()          |
+| **java.time.LocalTime与java.sql.Time**                       | Date.valueOf(localDate)               | date.toLocalTime()          |
+| **java.time.LocalDateTime与java.sql.Timestamp**              | Timestamp.valueOf(localDateTime)      | timestamp.toLocalDateTime() |
+| **java.time.ZoneId与java.util.TimeZone**                     | Timezone.getTimeZone(id)              | timeZone.toZoneId()         |
+| **java.time.format.DateTimeFormatter与java.text.DateFormat** | formatter.toFormat()                  | 无                          |
