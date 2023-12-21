@@ -1351,3 +1351,137 @@ public void test1(){
 | **java.time.LocalDateTime与java.sql.Timestamp**              | Timestamp.valueOf(localDateTime)      | timestamp.toLocalDateTime() |
 | **java.time.ZoneId与java.util.TimeZone**                     | Timezone.getTimeZone(id)              | timeZone.toZoneId()         |
 | **java.time.format.DateTimeFormatter与java.text.DateFormat** | formatter.toFormat()                  | 无                          |
+
+
+
+## Java比较器（Comparable和Comparator）
+
+我们知道基本数据类型的数据（除boolean类型外）需要比较大小的话，之间使用比较运算符即可，但是对于引用数据类型来说，是不能直接使用比较运算符来比较大小的。那么，该如何解决这个问题呢？
+
+* 在Java中经常会涉及到**对象数组的排序问题**，那么就涉及到对象之间的比较问题。
+* Java实现对象排序的方式有两种：
+  * **自然排序**：**`java.lang.Comparable`**
+  * **定制排序**：**`java.util.Comparator`**
+
+若在设计之初，就需要给一个类对象进行排序时，就可以使这个类实现Comparable接口；但是，若需要对第三方的类对象进行排序，或者不愿修改原有的类信息时，无法对类源码进行修改，则可以使用Comparator接口。
+
+## 自然排序：java.lang.Comparable
+
+* **`Comparable`**接口强行对实现它的每个类的对象进行整体排序。这种排序称为类的**自然排序**。
+
+* 实现自然排序的类必须实现Comparable接口，实现Comparable的类必须实现接口中的抽象方法**`public int compareTo(T o)`**方法。
+
+  两个对象即通过compareTo(T o)方法的返回值来比较大小，其中T是泛型类。**如果当前对象this大于形参o，则返回正整数；如果当前对象this小于形参对象o，则返回负整数；如果当前对象this等于形参对象o，则返回0。**（这样实现的是从小到大的排序）
+
+```java
+package java.lang;
+
+public interface Comparable{
+    int compareTo(Object obj);
+}
+```
+
+> 实现Comparable接口的对象列表（或数组）可以通过`Collections.sort()`或`Arrays.sort()`方法进行自动排序。
+>
+> 实现此接口的对象可以用作有序映射（如LinkedHashMap）中的键或有序集合（如ArrayList）中的元素，无需指定比较器。
+
+
+
+案例：
+
+```java
+public class ComparableTest{
+    public static void main(String[] args) {
+        Person p1 = new Person(20, 3000);
+        Person p2 = new Person(40, 4000);
+        Person p3 = new Person(11, 2000);
+        Person p4 = new Person(18, 3000);
+        Person p5 = new Person(18, 3000);
+
+
+        ArrayList<Person> arrayList = new ArrayList<>();
+        arrayList.add(p1);
+        arrayList.add(p2);
+        arrayList.add(p3);
+        arrayList.add(p4);
+        arrayList.add(p5);
+        for (Person person : arrayList) {
+            System.out.println(person);
+        }
+
+        System.out.println("********************");
+        //排序
+        Collections.sort(arrayList);
+
+        for (Person person : arrayList) {
+            System.out.println(person);
+        }
+
+    }
+}
+
+class Person implements Comparable<Person>{
+
+    public Person(int age, double salary) {
+        this.age = age;
+        this.salary = salary;
+    }
+
+    int age;
+    double salary;
+
+    /**
+     * 进行自然排序
+     * 先根据工资大小进行排序；相等的再根据年龄进行排序
+     * @param p the object to be compared.
+     * @return
+     */
+    @Override
+    public int compareTo(Person p) {
+        if (p == null){
+            throw new RuntimeException("信息有误！");
+        }
+        //对象相等，直接返回0
+        if (this == p){
+            return 0;
+        }
+        if (this.salary > p.salary){
+            return 1;
+        }else if (this.salary < p.salary){
+            return -1;
+        }else {
+            if (this.age > p.age){
+                return 1;
+            }else if (this.age < p.age){
+                return -1;
+            }else {
+                return 0;
+            }
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "Person{" +
+                "age=" + age +
+                ", salary=" + salary +
+                '}';
+    }
+}
+```
+
+输出结果：
+
+<img src=".\images\image-20231221170759138.png" align="left">
+
+> **注意：**
+>
+> 使用`Collections.sort()`或`Arrays.sort()`默认进行的是**`从小到大`**排序。
+>
+> 若想要实现**从大到小**排序的话：
+>
+> 当前对象的值大于传入参数obj的值时，返回负数；当前对象的值小于传入参数的值时，返回正数；相等则返回0。这样一来，使用Collections.sort()方法或Arrays.sort()方法进行排序后，是从大到小排序的。
+
+* 对于类中的每一个对象，如o1和o2对象来说，当且仅当o1.compareTo(o2) == 0与o1.equals(o2)具有相同的布尔值时，类的自然排序才与equals一致。
+
+  建议：`类自然排序返回值为0的情况与equals为true的情况一致`。
