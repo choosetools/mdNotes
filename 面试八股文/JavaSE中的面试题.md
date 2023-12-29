@@ -4,13 +4,13 @@
 
 使用自动装箱的方式去创建包装类，实际上在底层还是会去调用valueOf()方法创建。
 
-![image-20231130215144910](./JavaSE/images/image-20231130215144910.png)
+![image-20231130215144910](../JavaSE/images/image-20231130215144910.png)
 
 当满足i >= IntegerCache.low && i <= IntegerCache.high时，获得的Integer对象从现有的cache数组中获取的。其中Integer包装类中low的值是-128，high的值是127。
 
 让我们来看看cache数组：
 
-![image-20231130215726147](./JavaSE/images/image-20231130215726147.png)
+![image-20231130215726147](../JavaSE/images/image-20231130215726147.png)
 
 以上这段代码的含义就是，cache数组实际上就是一个Integer数组，保存的是-128 ~127区间以内的Integer对象，在Integer类加载的时候就会被创建出来。
 
@@ -143,7 +143,7 @@ System.out.println(true ? new Integer(90) : new Double(100.0));
 
 输出结果：
 
-<img src=".\images\image-20231130230059253.png" align="left">
+<img src="..\images\image-20231130230059253.png" align="left">
 
 分析：
 
@@ -251,7 +251,17 @@ System.out.println(true ? new Integer(90) : new Double(100.0));
 
 # HashMap与Hashtable的区别
 
+```
+HashMap：底层是一个哈希表（JDK7及之前：数组+链表；JDK8及之后：数组+链表+红黑树），是一个线程不安全的集合，执行效率高。
+Hashtable：底层也是一个哈希表（数组+链表），是一个线程安全的集合，执行效率低。
 
+HashMap集合：可以存储null的键、null的值。
+Hashtable集合：不能存储null的键、null的值。
+
+Hashtable和Vector集合一样，在jdk1.2版本之后就被更先进的集合HashMap和ArrayList取代了。所以HashMap是Map的主要实现类，Hashtable是Map的古老实现类。
+
+Hashtable的子类Properties（配置文件）类依然活跃，Properties集合是唯一一个和IO流相结合的集合。
+```
 
 
 
