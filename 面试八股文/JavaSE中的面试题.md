@@ -277,3 +277,9 @@ Hashtable的子类Properties（配置文件）类依然活跃，Properties集合
 
 
 
+# 区分Collection与Collections
+
+
+
+
+
