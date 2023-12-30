@@ -269,7 +269,13 @@ Hashtable的子类Properties（配置文件）类依然活跃，Properties集合
 
 # HashMap与LinkedHashMap的区别
 
+LinkedHashMap和HashMap是Java中两种常用的集合类，并且LinkedHashMap是HashMap的子类。它们的区别主要体现在：
 
+```
+LinkedHashMap使用了双向链表来维护插入顺序或者访问顺序，而HashMap没有保持任何顺序。在LinkedHashMap中，每一个entry都包含一个before和after引用，这样就可以形成一个双向链表。这个链表可以按照插入顺序进行遍历。而HashMap没有双向链表，无法根据插入的顺序进行遍历。
+
+如果在遍历时需要保持元素的插入顺序，那么可以选择LinkedHashMap。但如果不关心元素的顺序，则建议使用HashMap。
+```
 
 
 
@@ -277,9 +283,19 @@ Hashtable的子类Properties（配置文件）类依然活跃，Properties集合
 
 
 
+
+
+
+
 # 区分Collection与Collections
 
+**Collection**
 
+Collection是集合类的上层接口。本身是一个接口，里面包含了一些集合的基本操作。Collection接口是Set接口和List接口的父接口。
 
+**Collections**
 
+Collections是一个集合框架的工具类，卡里面包含了一些对集合的排序、搜索以及序列化的方法。
+
+最根本在于Collections是一个类，而Collection是一个接口。
 
