@@ -655,7 +655,7 @@ System.out.println(date2);//Fri Aug 18 22:20:32 HKT 2017
 
 ### java.sql.Date
 
-> java.sql.Date主要针对**SQL语句**使用，它输出时只包含日期而没有时间部分。
+> java.sql.Date主要针对**SQL语句**使用，它输出时`只包含日期而没有时间部分`。
 
 `java.sql.Date`是`java.util.Date`的子类，所以java.sql.Date中继承了来自于java.util.Date中的方法。
 
