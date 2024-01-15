@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->       
+>          
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -362,4 +362,168 @@ public void test8(){
 > mkdirs()方法若上层目录不存在，也一并创建。
 >
 > `delete()`方法若是删除的是目录，则要求目录下不存在文件或目录，即**目录是空的，才可以通过delete()删除。**
+
+
+
+
+
+# IO流原理及流的分类
+
+## Java IO原理
+
+* Java程序中，对于数据的输入/输出操作以“`流（Stream）`”的方式进行，可以看做是一种数据的流动。
+
+  <img src=".\images\image-20220503123117300.png" alt="image-20220503123117300" style="zoom: 80%;" />
+
+* I/O流中的I/O是`Input/Output`的缩写，I/O技术是非常实用的技术，用于处理设备之间的数据传输。如读/写文件，网络通讯等。
+
+  * `输入input`：读取外部数据（磁盘、光盘等存储设备的数据）到程序（内存）中。
+  * `输出Output`：将程序（内存）数据输出到磁盘、光盘等存储设备中。
+
+![image-20220412224700133](.\images\image-20220412224700133.png)
+
+
+
+## 流的分类
+
+`java.io`包下提供了各种“流”类和接口，用以获取不同种类的数据，并通过`标准的方法`输入或输出数据。
+
+* 按数据的流向不同分为：**输入流**和**输出流**
+
+  * **输入流**：把数据从`其他设备`上读取到`内存`中的流
+    * 以InputStream、Reader结尾
+  * **输出流**：把数据从`内存`中写出到`其他设备`上的流
+    * 以OutputStream、Writer结尾
+
+* 按操作数据单位的不同分为：**字节流（8bit）**和**字符流（16bit）**
+
+  * **字节流**：以字节为单位，读写数据的流
+    * 以`InputStream`、`OutputStream`结尾
+  * **字符流**：以字符为单位，读写数据的流
+    * 以`Reader`、`Writer`结尾
+
+* 根据IO流的角色不同分为：**节点流**和**处理流**
+
+  * **节点流**：直接从数据源或目的地读写数据
+
+    ![image-20220412230745170](.\images\image-20220412230745170.png)
+
+  * **处理流**：不直接连接到数据源或目的地，而是连接在已存在的流（节点流或处理流）之上，通过对数据的处理为程序提供更为强大的读写功能。
+
+    ![image-20220412230751461](.\images\image-20220412230751461.png)
+
+    大概来说，其实就是节点流直接去读写数据，处理流相当于在外面包上了一层，可以包在节点流上，也可以包在处理流之上。
+
+小结：图解
+
+<img src=".\images\image-20220412225253349.png" alt="image-20220412225253349" style="zoom:67%;" />
+
+
+
+## 流的API
+
+* Java的IO流共涉及40多个类，实际上非常规则，都是从如下4个抽象基类派生来的。
+
+| （抽象基类） | 输入流      | 输出流       |
+| :----------: | ----------- | ------------ |
+|    字节流    | InputStream | OutputStream |
+|    字符流    | Reader      | Writer       |
+
+* 由这四个类派生出来的子类名称都是以其父类名作为子类名后缀。
+
+![image-20220412230501953](.\images\image-20220412230501953.png)
+
+**常用的节点流：**
+
+* 文件流：FileInputStream、FileOutputStream、FileReader、FileWriter
+* 字节/字符数组流：ByteArrayInputStream、ByteArrayOutputStream、CharArrayReader、CharArrayWriter
+  * 对数组进行处理的节点流（对应的不再是文件，而是内存中的一个数组）。
+
+**常用处理流：**
+
+* 缓冲流：BufferedInputStream、BufferedOutputStream、BufferedReader、BufferedWriter
+  * 作用：增加缓冲功能，避免频繁读写硬盘，进而提升读写效率。
+* 转换流：InputStreamReader、OutputStreamReader
+  * 作用：实现字节流和字符流之间的转换
+* 对象流：ObjectInputStream、ObjectOutputStream
+  * 作用：提供直接读写Java对象功能
+
+
+
+# 节点流
+
+## 节点流之一：FileReader\FileWriter
+
+### 1、Reader与Writer的介绍
+
+Java提供一些字符流类，以**字符为单位**读写数据，专门用于`处理文本文件`。不能操作图片，视频等非文本文件。
+
+> 常见的文本文件有如下格式：.txt、.java、.c、.cpp、.py等
+>
+> 注意：.doc、.xls、.ppt都不是文本文件
+
+#### 1.1、字符输入流：Reader
+
+`java.io.Reader`抽象类是表示用于读取字符流的所有类的父类，可以读取字符信息到内存中。它顶级了字符输入流的基本共性功能方法。
+
+* **`public int read()`**：从输入流读取一个字符。虽然读取了一个字符，但是会自动提升为int类型。返回该字符的Unicode编码值。如果已经到达流末尾了，则返回-1。
+* **`public int read(char[] cbuf)`**：从输入流读取一些字符，并将它们存储到字符数组cbuf中。每次最多读取cbuf.length个字符。返回实际读取的字符个数。如果已经到达流末尾，没有数据可读，则返回-1。
+* **`public int red(char[] cbuf, int off, int len)`**：从输入流中读取一些字符，并将它们存储到字符数组cbuf中，从cbuf[off]开始的位置存储，每次最多读取len个字符，返回实际读取的字符个数。如果已经到达流末尾，没有数据可读，则返回-1。
+* **`public void close()`**：关闭此流并释放与此流相关联的任何系统资源。
+
+> 注意：当完成流的操作时，必须调用close()方法，释放系统资源，否则会造成内存泄露。
+
+
+
+
+
+
+
+#### 2、字符输出流：Writer
+
+`java.io.Writer`抽象类是表示用于写出字符流的所有类的超类，将指定的字符信息写出到目的地。它定义了字节输出流的基本共性功能方法。
+
+* **`public void writer(int c)`**：写出单个字符。
+* **`public void write(char[] cbuf)`**：写出字符数组。
+* **`public void write(char[] cbuf, int off, int len)`**：写出字符数组的某一部分。off：数组的开始索引；len：写出字符的个数。
+* **`public void write(String str)`**：写出字符串。
+* **`public void write(String str, int off, int len)`**：写出字符串的某一部分。off：字符串的开始索引；len：写出的字符个数。
+* **`public void flush()`**：刷新该流的缓冲。
+* **`public void close()`**：关闭此流。
+
+
+
+
+
+
+
+
+
+## 节点流之二：FileInputStream\FileOutputStream
+
+
+
+
+
+
+
+# 处理流
+
+## 处理流之一：缓冲流
+
+
+
+## 处理流之二：转换流
+
+
+
+## 处理流之三/四：数据流、对象流
+
+
+
+
+
+# 其他流
+
+
 
