@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->          
+>             
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -466,9 +466,9 @@ Java提供一些字符流类，以**字符为单位**读写数据，专门用于
 
 `java.io.Reader`抽象类是表示用于读取字符流的所有类的父类，可以读取字符信息到内存中。它顶级了字符输入流的基本共性功能方法。
 
-* **`public int read()`**：从输入流读取一个字符。虽然读取了一个字符，但是会自动提升为int类型。返回该字符的Unicode编码值。如果已经到达流末尾了，则返回-1。
-* **`public int read(char[] cbuf)`**：从输入流读取一些字符，并将它们存储到字符数组cbuf中。每次最多读取cbuf.length个字符。返回实际读取的字符个数。如果已经到达流末尾，没有数据可读，则返回-1。
-* **`public int red(char[] cbuf, int off, int len)`**：从输入流中读取一些字符，并将它们存储到字符数组cbuf中，从cbuf[off]开始的位置存储，每次最多读取len个字符，返回实际读取的字符个数。如果已经到达流末尾，没有数据可读，则返回-1。
+* `public int read()`：从输入流读取一个字符。虽然读取了一个字符，但是会自动提升为int类型。返回该字符的Unicode编码值。如果已经到达流末尾了，则返回-1。
+* **`public int read(char[] cbuf)`**：从输入流读取一些字符，并将它们存储到字符数组cbuf中。返回的结果是实际读取到的字符个数，当未读取到任何字符个数时，返回-1。
+* `public int red(char[] cbuf, int off, int len)`：从输入流中读取一些字符，并将它们存储到字符数组cbuf中，从cbuf[off]开始的位置存储，每次最多读取len个字符，返回实际读取的字符个数。如果已经到达流末尾，没有数据可读，则返回-1。
 * **`public void close()`**：关闭此流并释放与此流相关联的任何系统资源。
 
 > 注意：当完成流的操作时，必须调用close()方法，释放系统资源，否则会造成内存泄露。
@@ -483,25 +483,497 @@ Java提供一些字符流类，以**字符为单位**读写数据，专门用于
 
 `java.io.Writer`抽象类是表示用于写出字符流的所有类的超类，将指定的字符信息写出到目的地。它定义了字节输出流的基本共性功能方法。
 
-* **`public void writer(int c)`**：写出单个字符。
-* **`public void write(char[] cbuf)`**：写出字符数组。
+* `public void writer(int c)`：写出单个字符。
+* `public void write(char[] cbuf)`：写出字符数组。
 * **`public void write(char[] cbuf, int off, int len)`**：写出字符数组的某一部分。off：数组的开始索引；len：写出字符的个数。
-* **`public void write(String str)`**：写出字符串。
-* **`public void write(String str, int off, int len)`**：写出字符串的某一部分。off：字符串的开始索引；len：写出的字符个数。
+* `public void write(String str)`：写出字符串。
+* `public void write(String str, int off, int len)`：写出字符串的某一部分。off：字符串的开始索引；len：写出的字符个数。
 * **`public void flush()`**：刷新该流的缓冲。
 * **`public void close()`**：关闭此流。
 
+> 注意：当完成流的操作时，必须调用close()方法，释放系统资源，否则会造成内存泄露。
+>
+
+
+
+### 2、FileReader与FileWriter
+
+#### 2.1、FileReader
+
+`java.io.FileReader`类用于读取字符文件，构造时使用系统默认的字符编码和默认字节缓冲区。
+
+* **`FileReader(File file)`**：根据要读取的File对象，创建一个新的FileReader。
+* `FileReader(String fileName)`：创建一个新的FileReader，给定要读取的文件的名称。
+
+
+
+举例：读取hello.txt文件中的字符数据，并显示在控制台上
+
+方案一：
+
+```java
+@Test
+public void test() throws IOException {
+    //1、创建File对象，对应着hello.txt文件
+    File file = new File(".\\src\\main\\java\\org\\example\\hello.txt");
+    
+    //2、创建输入型的字符流，用于读取数据
+    FileReader reader = new FileReader(file);
+    
+    //3、读取数据，并显示在控制台上
+    int c;
+    StringBuilder str = new StringBuilder();
+    while ((c = reader.read()) != -1){
+        //当read()返回值不为-1时，说明未到达流末尾
+        //此时将c转换成字符型数据
+        str.append((char)c);
+    }
+    System.out.println(str);
+    
+    //4、流资源的关闭（必须要关闭，否则会内存泄露）
+    reader.close();
+}
+```
+
+
+
+改进方案二：使用`try-catch-finally`代替`throws`，因为程序必须关闭流资源
+
+```java
+@Test
+public void test(){
+    File file = new File(".\\src\\main\\java\\org\\example\\hello.txt");
+
+    FileReader reader = null;
+    try {
+        reader = new FileReader(file);
+        int c;
+        StringBuilder str = new StringBuilder();
+        while ((c = reader.read()) != -1){
+            str.append((char)c);
+        }
+        System.out.println(str);
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (reader != null) {
+                reader.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+
+
+改进方案三：使用`read(char[] cbuf)`代替`read()`，每次从文件中读取多个字符
+
+* **`int read(char[] cbuf)`**：从磁盘文件中读取cbuf数组长度个字符，返回的int类型是实际上读取到的字符个数，当未读取到任何字符时，返回-1。
+
+代码：
+
+```java
+/**
+ * 对test()进行优化，每次读取多个字符存放到字符数组，减少与磁盘交互的次数，提升效率
+ */
+@Test
+public void test1(){
+
+    File file = new File(".\\src\\main\\java\\org\\example\\hello.txt");
+    FileReader reader = null;
+    
+    //创建字符数组，用于存储读取到的字符
+    char[] cBuffer = new char[5];
+    StringBuilder str = new StringBuilder();
+    try {
+        reader = new FileReader(file);
+        //循环读取，当read(char[])的返回值为-1时，即表示未读取到任何数据，返回值表示实际读取字符的个数
+        while (true){
+            int charNum = reader.read(cBuffer);
+            if (charNum == -1){
+                break;
+            }else {
+                for (int i = 0; i < charNum; i++) {
+                    str.append(cBuffer[i]);
+                }
+            }
+        }
+        System.out.println(str);
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (reader != null) {
+                reader.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+
+
+> `read()`一次只能获取一个数据
+>
+> `read(char[] cbuf)`一次性可以获取多个数据，减少了内存与磁盘之间的交互次数。磁盘的处理速度是比内存慢很多很多的，所以，**我们要尽可能地减少与磁盘的交互**。
+
+
+
+#### 2.2、FileWriter
+
+`java.io.FileWriter`类用于写出字符到磁盘文件中，构造时使用系统默认的字符编码和默认字节缓冲区。
+
+* **`FileWriter(File file)`**：创建一个新的FileWriter，给定要读取的File对象。
+* `FileWriter(String fileName)`：创建一个新的FileWriter，给定要读取的文件的名称。
+* `FileWriter(File file, boolean append)`：创建一个新的FileWriter，指明当前的输出流是覆盖还是在末尾追加内容，为false是覆盖原内容，true是在文件末尾追加内容。
+
+
+
+举例1：将内存中的数据写出到指定文件中
+
+```java
+/**
+ * 需求：将内存中的数据写出到指定文件中
+ */
+@Test
+public void test2(){
+    //1、创建File类对象，指明要写出的文件的名称
+    File file = new File(".\\src\\main\\java\\org\\example\\nihao.txt");
+    FileWriter writer = null;
+    try {
+        //2、创建输出流
+        writer = new FileWriter(file);
+        //3、写出的具体过程
+        //输出的具体方法：write(String str) / write(char[] cdata)
+        writer.write("I love U!\n");
+        writer.write("You love him!\n");
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        //4、关闭资源
+        try {
+            if (writer != null) {
+                writer.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+注意点：
+
+1、当File对象所表示的文件不存在时，此时去执行，并不会报错，因为当文件不存在时，输出流会自动帮助我们创建文件：
+
+<img src=".\images\image-20240115204137123.png" align="left">
+
+<img src=".\images\image-20240115204150120.png" align="left">
+
+2、当File对象所表示的文件存在，且文件中包含内容时，此时去执行文件，会对文件进行覆盖。
+
+比如：原文件内容：
+
+<img src=".\images\image-20240115204428547.png" align="left">
+
+当我们去执行程序后：
+
+<img src=".\images\image-20240115204436517.png" align="left">
+
+这实际是去覆盖了。
+
+这其实和创建输出流的构造器有关：
+
+`FileWriter(File file)`类似于`FileWriter(File file, false)`，即不是在文件末尾追加内容，而是**覆盖内容**。
+
+当我们使用`FileWriter(File file, true)`的方式创建FileWriter对象时，实际上是去**文件末尾追加内容**，而不是去覆盖内容。
+
+比如，将FileWriter的创建改成使用FileWriter(File file, true)的方式，此时去执行程序后，多次执行结果：
+
+<img src=".\images\image-20240115204745784.png" align="left">
+
+即：此时就会往文件末尾追加写出的字符。
 
 
 
 
 
+案例2：复制一份hello.txt文件，命名为hello_copy.txt文件
+
+```java
+@Test
+public void test5(){
+    //1、创建File类的对象
+    File srcFile = new File(".\\src\\main\\java\\org\\example\\hello.txt");
+    File destFile = new File(".\\src\\main\\java\\org\\example\\hello_copy.txt");
+
+    //2、创建输入流、输出流
+    FileReader reader = null;
+    FileWriter writer = null;
+    try {
+        reader = new FileReader(srcFile);
+        writer = new FileWriter(destFile);
+
+        //3、数据的读入和写出过程
+        char[] cBuffer = new char[5];//用于存储每次读取的字符
+        int len;//记录每次读入到cBuffer中的字符个数
+        while ((len = reader.read(cBuffer)) != -1){
+            //writer给我们提供了一个write(char cbuf[], int off, int len)方法
+            //该方法刚好可以用于写出使用char[]数组读入的数据
+            writer.write(cBuffer, 0, len);
+        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (reader != null) {
+                reader.close();
+            }
+            if (writer != null) {
+                writer.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+#### **总结**
+
+**执行步骤**：
+
+> 第一步：创建读取或写出的File类对象
+>
+> 第二步：创建输入流或输出流
+>
+> 第三步：具体的读入或写出的过程。
+>
+> ​		读入：`read(char[] cbuffer)`
+>
+> ​		写出：`write(String str)` / `write(char[] cbuffer, 0, len)`
+>
+> 第四步：关闭流资源，避免内容泄露
 
 
+
+**注意点**：
+
+> 1. 因为出现流资源的关闭操作，为了避免因出现异常而造成内存泄露，需要使用`try-catch-finally`处理异常。
+> 2. 对于**输入流**来说，File类的对象必须在物理磁盘上**存在**，否则执行就会报`FileNotFoundException`。如果传入的是一个目录，则会报`IOException`。
+> 3. 对于**输出流**来说，File类的对象是**可以不存在**的。
+>    * 如果File类的对象不存在，则可以在输出的过程中，自动创建File类的对象。
+>    * 如果File类的对象存在：
+>      * 如果调用`FileWriter(File file)`或`FileWriter(File file, false)`创建输出流对象的话，输出时会新建File文件并**覆盖已有的文件**
+>      * 如果调用`FileWriter(File file, true)`构造器创建输出流对象的话，则输出时会在现有的文件**末尾追加写出的内容**。
+
+
+
+#### 2.3、关于`flush()`（刷新）
+
+由于内置缓冲区的缘故，如果FileWriter不关闭输出流，即不调用`close()`方法，就无法写出字符到文件中。
+
+例如：
+
+```java
+@Test
+public void test6(){
+    File file = new File(".\\src\\main\\java\\org\\example\\flushTest.txt");
+    FileWriter writer = null;
+    try {
+        writer = new FileWriter(file);
+        writer.write("测试刷新方法");
+        //休眠
+        Thread.sleep(100000L);
+        
+    } catch (IOException | InterruptedException e) {
+        throw new RuntimeException(e);
+    } finally {
+        try {
+            if (writer != null) {
+                writer.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+当我们在休眠期间去查看flushTest.txt文件时，发现字符并没有写到文件中：
+
+<img src=".\images\image-20240115213853792.png" align="left">
+
+我们可以得知，write()方法执行完毕后并没有将字符写出到文件中，而是当执行完close()方法时，才写出到文件。
+
+
+
+但是，当关闭流对象后，就无法继续写出数据了。**当我们既想写出数据到文件中，又想继续使用流时，就需要`flush()`方法了。**
+
+* **`flush()`**：刷新缓冲区，将缓冲区中的字符写出到文件中，还可以继续使用流。
+* **`close()`**：先刷新缓冲区，将缓冲区中的字符写出到文件中，然后通知系统释放资源，流对象不可再被使用。
+
+注意：
+
+即便是使用了flush()方法刷新缓冲了，但是最后还是需要close()方法去释放资源。
+
+案例：
+
+```java
+@Test
+public void test6(){
+    File file = new File(".\\src\\main\\java\\org\\example\\flushTest.txt");
+    FileWriter writer = null;
+    try {
+        writer = new FileWriter(file);
+        writer.write("测试刷新方法");
+        writer.flush();
+        Thread.sleep(100000L);
+    } catch (IOException | InterruptedException e) {
+        throw new RuntimeException(e);
+    } finally {
+        try {
+            if (writer != null) {
+                writer.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+此时，当我们在休眠期间去查看文件时，就可以发现字符写出到了文件中了。因为flush()刷新了缓冲区。该方法可以在不关闭流的情况下将内容输出到文件中。
+
+<img src=".\images\image-20240115214041678.png" align="left">
 
 ## 节点流之二：FileInputStream\FileOutputStream
 
+如果我们读取或写出的数据是非文本文件时，比如视频或图片，则Reader、Writer就无能为力了，必须使用字节流。
 
+
+
+### 1、InputStream和OutputStream介绍
+
+InputStream、OutputStream与Reader、Writer的区别仅仅只是一个是字节流，一个是字符流，在参数中一个是char[]类型的数组，一个是byte[]类型的数组。
+
+#### 1.1、字节输入流：InputStream
+
+`java.io.InputStream`抽象类是表示字节输入流的所有类的超类，可以读取字节信息到内存中。它定义了字节输入流的基本共性功能方法。
+
+* `public int read()`：从输入流读取一个字节。返回读取的字节值。虽然读取了一个字节，但是会自动提升为int类型。如果已经到达流末尾，没有数据可读，则返回-1。
+* **`public int read(byte[] b)`**：从输入流中读取一些字节数，并将他们存储到字节数组b中。每次最多读取b.length个字节。返回实际读取的字节个数。如果已经到达流末尾，没有数据可读，则返回-1。
+* `public int read(byte[] b, int off, int len)`：从输入流中读取一些字节数，并将它们存储到字节数组b中，从b[off]开始存储，每次最多读取len个字节。返回实际读取的字节个数。如果已经到达流末尾，没有数据可读，则返回-1。
+* **`public void close()`**：关闭此输入流并释放与此流相关联的任何系统资源。
+
+#### 1.2、字节输出流：OutputStream
+
+`java.io.OutputStream`抽象类是表示字节输出流的所有类的超类，将指定的字节信息写出到目的地。它定义了字节输出流的基本共性功能方法。
+
+* `public void write(int b)`：将指定的字节输出流。虽然参数为int类型四个字节，但是只会保留一个字节的信息写出。
+* `public void write(byte[] b)`：将b.length字节从指定的字节数组写入此输出流。
+* **`public void write(byte[] b, int off, int len)`**：从指定的字节数组写入len字节，从偏移量off开始输出到此输出流。
+* `public void flush()`：刷新此输出流并强制任何缓冲的输出字节被写出。
+* **`public void close()`**：关闭此输出流并释放与此流相关联的任何系统资源。
+
+
+
+### 2、FileInputStream与FileOutputStream
+
+字节流不仅仅可以用于图形、视频，还可以用于文本文件的复制。
+
+#### 2.1、FileInputStream
+
+`java.io.FileInputStream`类是文件输入流，从文件中读取字节。
+
+* **`FileInputStream(File file)`**：通过打开与实际文件的链接来创建一个FileInputStream，该文件由文件系统中的File对象file命名。
+* `FileInputStream(String name)`：通过打开与实际文件的链接来创建一个FileInputStream，该文件由文件系统中的路径名name命名。
+
+#### 2.2、FileOutputStream
+
+`java.io.FileOutputStream`类是文件输出流，用于将数据写出到文件。
+
+* **`public FileOutputStream(File file)`**：创建文件输出流，写出由指定的File对象表示的文件。
+* `public FileOutputStream(String name)`：创建文件输出流，指定的名称为写出文件。
+* `public FileOutputStream(File file, boolean append)`：创建文件输出流，指明是否在现有文件末尾追加内容。
+
+#### 2.3、文件字节流的最常使用方式：复制
+
+代码：
+
+```java
+@Test
+public void test8(){
+    //创建File对象，指明文件复制的源文件和目标文件地址
+    File srcFile = new File("./src/main/java/org/example/图片1.jpg");
+    File destFile = new File("./src/main/java/org/example/复制后的图片1.jpg");
+    
+    FileInputStream fis = null;
+    FileOutputStream fos = null;
+    try {
+        //创建输入输出流
+        fis = new FileInputStream(srcFile);
+        fos = new FileOutputStream(destFile);
+
+        //创建byte[]数组，该数组用于存储从文件中读取的数据
+        byte[] buffer = new byte[1024];
+        int len;
+        
+        //当len != -1时，说明buffer中有从文件中读取来的数据
+        while ((len = fis.read(buffer)) != -1){
+            //将buffer中的数据写出到destFile文件中
+            fos.write(buffer, 0, len);
+        }
+        
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (fis != null) {
+                fis.close();
+            }
+            if (fos != null) {
+                fos.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+此时就实现了文件的复制
+
+文件的复制基本上都使用上述的方式进行
+
+对于文本文件来说，复制也可以使用上述的方式，但是对于仅仅读取或写出操作，文本文件则不能使用字节流，因为字节流有可能打印到控制台上会出现乱码，但是复制操作可以使用字节流。
+
+#### 总结
+
+字节流与字符流的操作是一样的，只不过read()方法和write()方法的参数不同，一个使用的是byte[]，一个使用的是char[]数组。
+
+
+
+#### 注意点
+
+> 在字符流注意点的基础上，字节流的其他注意点：
+>
+> * 对于**`字符流`**，**只能用于操作文本文件**，不能用来处理非文本文件。
+>
+> * 对于**`字节流`**，**通常是用来处理非文本文件的，如果涉及到文本文件的复制操作，也可以使用字节流**。
+>
+> 
+>
+> **说明**
+>
+> 文本文件：.txt、.java、.c、.cpp、.py等
+>
+> 非文本文件：.doc、.xls、.ppt、.pdf、.mp3、.mp4、.jpg等
 
 
 
