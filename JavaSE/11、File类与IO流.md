@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->                
+>                   
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -1069,7 +1069,7 @@ private static void copyDir(File file, File file1) {
 
 ## 处理流之一：缓冲流
 
-### 概述
+### 1、概述
 
 * **作用**：**`为了提高数据读写的速度`**。
 
@@ -1094,7 +1094,7 @@ private static void copyDir(File file, File file1) {
 
 
 
-### 四种缓冲流以及使用的方法
+### 2、四种缓冲流以及使用的方法
 
 四个缓冲流										使用的方法
 
@@ -1114,7 +1114,7 @@ private static void copyDir(File file, File file1) {
 
 
 
-### 构造器
+### 3、构造器
 
 * **`public BufferedInputStream(InputStream in)`**：创建一个新的字节型的缓冲输入流，需要传入一个字节输入流类型对象。
 * **`public BufferedOutputStream(OutputStream out)`**：创建一个新的字节型缓冲输出流，需要传入一个字节输出流类型对象。
@@ -1123,7 +1123,7 @@ private static void copyDir(File file, File file1) {
 
 
 
-### 实现步骤
+### 4、实现步骤
 
 第一步：创建File对象、流的对象（包括文件流、缓冲流）
 
@@ -1197,7 +1197,7 @@ public void test(){
 
 
 
-### 缓冲流效率测试
+### 5、缓冲流效率测试
 
 测试：对比测试缓冲流是否真的有提高读写速度的功能
 
@@ -1416,24 +1416,139 @@ public void test3(){
 
 
 
-### 字符缓冲流特有方法
+### 6、字符缓冲流特有方法
 
 字符缓冲流的基本方法与普通字符流调用方式一致，不再赘述，我们来看它们具备的特有方法。
 
-* BufferedReader：`public String readLine()`：读一行文字。
-* BufferedWriter：`public void newLine()`：写一行行分隔符，由系统属性定义符号。
+* BufferedReader：**`public String readLine()`**：读取一行文字，返回读取的那一行数据的String类型，返回的字符串不包含换行符。当读取到末尾时，返回null。
 
+* BufferedWriter：`public void newLine()`：表示换行操作。
 
+  newLine()经常与readLine()一起使用。因为readLine()表示读取一行数据，但是不去换行，与newLine()一起使用刚好读取完一行，然后换一行。
 
+使用案例：
 
+使用BufferedReader和BufferedWriter实现文本文件的复制
+
+```java
+@Test
+public void test12(){
+    File file1 = new File(".\\src\\main\\java\\org\\example\\hello.txt");
+    File file2 = new File(".\\src\\main\\java\\org\\example\\hello_copy.txt");
+    BufferedReader br = null;
+    BufferedWriter bw = null;
+    try {
+        br = new BufferedReader(new FileReader(file1));
+        bw = new BufferedWriter(new FileWriter(file2));
+        String str;
+        while ((str = br.readLine()) != null){
+            //readLine()读取一行数据，write()写一行
+            bw.write(str);
+            //相当于换行符，就是去换一行
+            bw.newLine();
+        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (br != null) {
+                br.close();
+            }
+            if (bw != null) {
+                bw.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+### 7、何时使用缓冲流
+
+当**`文件比较大`**时，此时我们去读写数据，就需要使用到缓冲流。
 
 
 
 ## 处理流之二：转换流
 
+### 1、问题引入
+
+如果希望程序在读取文本文件时，不出现乱码，需要注意什么？
+
+**解码时使用的字符集必须与当初编码时使用的字符集相同。**
+
+编码：字符 -> 字节（从我们看得懂的 --> 我们看不懂的）
+
+解码：字节 -> 字符（从我们看不懂的 --> 我们看得懂的）
+
+**问题的引入：**
+
+使用`FileReader`读取项目中的文本文件。由于IDEA设置中针对项目设置了UTF-7编码，当读取Windows系统中创建的文本文件时，如果Windows系统默认的是GBK编码，则读入内存中会出现乱码。
+
+案例：
+
+```java
+@Test
+public void test(){
+    File file = new File("C:\\Users\\14036\\Desktop\\test.txt");
+    FileReader fr = null;
+    try {
+        fr = new FileReader(file);
+        char[] cBuffer = new char[20];
+        int len;
+        while ((len = fr.read(cBuffer)) != -1){
+            System.out.println(new String(cBuffer, 0, len));
+        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (fr != null) {
+                fr.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+当文件使用GBK编码，打印出来的结果：
+
+<img src=".\images\image-20240116181121925.png" align="left">
+
+使用中文的就会出现乱码。这个时候就需要使用到转换流。
 
 
-## 处理流之三/四：数据流、对象流
+
+### 2、转换流的理解
+
+**`作用：实现字节与字符之间的转换。`**
+
+<img src=".\images\2_zhuanhuan.jpg" style="zoom: 67%;" />
+
+
+
+具体来说：
+
+<img src=".\images\image-20220412231533768.png" alt="image-20220412231533768" style="zoom:85%;" />
+
+
+
+
+
+
+
+
+
+## 处理流之三：数据流
+
+
+
+
+
+## 处理流之四：对象流
 
 
 
