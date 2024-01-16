@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->             
+>                
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -965,7 +965,7 @@ public void test8(){
 >
 > * 对于**`字符流`**，**只能用于操作文本文件**，不能用来处理非文本文件。
 >
-> * 对于**`字节流`**，**通常是用来处理非文本文件的，如果涉及到文本文件的复制操作，也可以使用字节流**。
+> * 对于**`字节流`**，**通常是用来处理非文本文件的，如果涉及到文本文件的`复制`操作，也可以使用字节流**。
 >
 > 
 >
@@ -977,11 +977,455 @@ public void test8(){
 
 
 
+### 使用文件流复制目录：
+
+```java
+private static void copyDir(File file, File file1) {
+    if (file.isFile()){
+        FileInputStream fis = null;
+        FileOutputStream fos = null;
+
+        try {
+
+            //读这个文件
+            fis = new FileInputStream(file);
+
+            //先获取源路径的相对路径
+            String strFile = file.getAbsolutePath();
+
+            //目标路径：拷贝目标路径 + 源路径（截取掉盘符）后面的路径。
+            String strNew = (file1.getAbsolutePath().endsWith("\\") ? file1.getAbsolutePath():file1.getAbsolutePath() + "\\")+ strFile.substring(3);
+
+            //写到这个文件中
+            fos = new FileOutputStream(strNew);
+
+            //一边读一边写
+            byte[] bytes = new byte[1024]; //一次复制1MB
+            int ioo = 0;
+            while ((ioo = fis.read(bytes)) != -1){
+                fos.write(bytes,0,ioo);
+            }
+
+            //刷新
+            fos.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (fis != null) {
+                try {
+                    fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        //如果是一个文件的话，递归结束
+        return;
+    }
+
+    //获取源下的子目录
+    File[] file2 = file.listFiles();
+    if (file2 != null) {
+        for(File file3 : file2){
+            //获取所有文件的（包括目录和文件）绝对路径
+            //System.out.println(file3.getAbsolutePath());
+            //如果是一个目录
+            if(file3.isDirectory()){
+                //新建对应的目录
+                String str = file3.getAbsolutePath();//获取源目录
+
+                //获取目标目录
+                //判断是否是以斜杠(\)结尾
+                String strSub = (file1.getAbsolutePath().endsWith("\\") ? file1.getAbsolutePath():file1.getAbsolutePath() + "\\") + str.substring(3);
+
+                //新建一个File对象
+                File newFile = new File(strSub);
+
+                //判断目录是否存在，如果不存在就新建多重目录
+                if(!newFile.exists()){
+                    newFile.mkdirs();
+                }
+            }
+            //递归调用
+            copyDir(file3,file1);
+        }
+    }
+}
+```
+
+
+
 
 
 # 处理流
 
 ## 处理流之一：缓冲流
+
+### 概述
+
+* **作用**：**`为了提高数据读写的速度`**。
+
+  Java API提供了带缓冲功能的流类：缓冲流。
+
+* 缓冲流要“套接”在相应的节点流之上，根据数据操作单位可以把缓冲流分为：
+
+  * **字节缓冲流**：**`BufferedInputStream`**、**`BufferedOutputStream`**
+  * **字符缓冲流**：**`BufferedReader`**、**`BufferedWriter`**
+
+* **缓冲流的基本原理**：在创建流对象时，内部会创建一个缓冲区数组（缺省使用**`8192个字节（8KB）`**的缓冲区），通过缓冲区读写，减少IO次数，从而提高读写的效率。
+
+![image-20240116093823333](.\images\image-20240116093823333.png)
+
+<img src=".\images\image-20220514183413011.png" alt="image-20220514183413011" style="zoom:80%;" />
+
+调用flush()刷新方法，将缓冲区中的内容读入/写出。
+
+
+
+
+
+
+
+### 四种缓冲流以及使用的方法
+
+四个缓冲流										使用的方法
+
+**处理非文本文件的字节流：**		
+
+**`BufferedInputStream`**			`read(byte[] buffer)`
+
+**`BufferedOutputStream`**		`write(byte[] buffer, 0, len)`
+
+
+
+**处理文本文件的字节流：**
+
+**`BufferedReader`**				`read(char[] cBuffer)  /  readLine()`
+
+**`BufferedWriter`**					`write(char[] cBuffer, 0, len)`
+
+
+
+### 构造器
+
+* **`public BufferedInputStream(InputStream in)`**：创建一个新的字节型的缓冲输入流，需要传入一个字节输入流类型对象。
+* **`public BufferedOutputStream(OutputStream out)`**：创建一个新的字节型缓冲输出流，需要传入一个字节输出流类型对象。
+* **`public BufferedReader(Reader in)`**：创建一个新的字符型缓冲输入流。
+* **`public BufferedWriter(Writer out)`**：创建一个新的字符串缓冲输出流。
+
+
+
+### 实现步骤
+
+第一步：创建File对象、流的对象（包括文件流、缓冲流）
+
+
+
+第二步：使用缓冲流实现读取或写出数据的过程
+
+​	读取：int read(char[] cbuf / byte[] buffer)：每次将数据读入到cbuf / buffer数组中，并返回
+
+​	写出：void write(String str) / write(char[] cbuf)：将str或cbuf写出到文件中
+
+​			   void write(byte[] buffer)：将byte[]写出到文件中
+
+
+
+第三步：关闭资源
+
+
+
+案例：使用缓冲流实现图片的复制
+
+
+
+```java
+@Test
+public void test(){
+    //创建相关的File类对象（其中，需要被复制的File必须有文件对应，复制后的File对象可不存在）
+    File srcFile = new File("./src/main/java/org/example/图片1.jpg");
+    File destFile = new File("src/main/java/org/example/复制的图片.jpg");
+
+    BufferedInputStream bis = null;
+    BufferedOutputStream bos = null;
+    try {
+        //创建缓冲流，处理流需要使用节点流或其他处理流作为参数创建，即相当于包裹在其他流上
+        bis = new BufferedInputStream(new FileInputStream(srcFile));
+        bos = new BufferedOutputStream(new FileOutputStream(destFile));
+
+        //进行读写操作
+        byte[] buffer = new byte[1024];
+        int len;
+        while ((len = bis.read(buffer)) != -1){
+            bos.write(buffer, 0, len);
+        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        
+        try {
+            //关闭流资源
+            if (bis != null) {
+                bis.close();
+            }
+            if (bos != null) {
+                bos.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+
+
+> 说明：
+>
+> 1. 涉及到嵌套的多个流时，如果都显式关闭的话，需要先关闭外层的流，再关闭内层的流。
+> 2. 其实在开发中，只需要关闭最外层的流即可，因为在关闭外层流时，内层的流也会被关闭。
+
+
+
+
+
+### 缓冲流效率测试
+
+测试：对比测试缓冲流是否真的有提高读写速度的功能
+
+使用文件流复制一份300MB目录：
+
+```java
+private static void copyDir(File file, File file1) {
+    if (file.isFile()){
+        FileInputStream fis = null;
+        FileOutputStream fos = null;
+
+        try {
+
+            //读这个文件
+            fis = new FileInputStream(file);
+
+            //先获取源路径的相对路径
+            String strFile = file.getAbsolutePath();
+
+            //目标路径：拷贝目标路径 + 源路径（截取掉盘符）后面的路径。
+            String strNew = (file1.getAbsolutePath().endsWith("\\") ? file1.getAbsolutePath():file1.getAbsolutePath() + "\\")+ strFile.substring(3);
+
+            //写到这个文件中
+            fos = new FileOutputStream(strNew);
+
+            //一边读一边写
+            byte[] bytes = new byte[1024]; //一次复制1kb
+            int ioo = 0;
+            while ((ioo = fis.read(bytes)) != -1){
+                fos.write(bytes,0,ioo);
+            }
+
+            //刷新
+            fos.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (fis != null) {
+                try {
+                    fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        //如果是一个文件的话，递归结束
+        return;
+    }
+
+    //获取源下的子目录
+    File[] file2 = file.listFiles();
+    if (file2 != null) {
+        for(File file3 : file2){
+            //获取所有文件的（包括目录和文件）绝对路径
+            //System.out.println(file3.getAbsolutePath());
+            //如果是一个目录
+            if(file3.isDirectory()){
+                //新建对应的目录
+                String str = file3.getAbsolutePath();//获取源目录
+
+                //获取目标目录
+                //判断是否是以斜杠(\)结尾
+                String strSub = (file1.getAbsolutePath().endsWith("\\") ? file1.getAbsolutePath():file1.getAbsolutePath() + "\\") + str.substring(3);
+
+                //新建一个File对象
+                File newFile = new File(strSub);
+
+                //判断目录是否存在，如果不存在就新建多重目录
+                if(!newFile.exists()){
+                    newFile.mkdirs();
+                }
+            }
+            //递归调用
+            copyDir(file3,file1);
+        }
+    }
+}
+```
+
+测试代码：
+
+```java
+@Test
+public void test3(){
+    long start = System.currentTimeMillis();
+    copyDir(new File("E:\\测试\\jdk7"), new File("E:\\测试\\复制后的地址"));
+    long end = System.currentTimeMillis();
+    System.out.println("所花时间为：" + (end - start));
+}
+```
+
+打印结果：
+
+<img src=".\images\image-20240116111556734.png" align="left">
+
+
+
+
+
+**改成使用缓冲流复制一份相同文件：**
+
+将复制代码进行修改：
+
+```java
+private static void copyDir(File file, File file1) {
+    if (file.isFile()){
+        BufferedInputStream bis = null;
+        BufferedOutputStream bos = null;
+
+
+        try {
+
+            //读这个文件
+            FileInputStream fis = new FileInputStream(file);
+            bis = new BufferedInputStream(fis);
+
+            //先获取源路径的相对路径
+            String strFile = file.getAbsolutePath();
+
+            //目标路径：拷贝目标路径 + 源路径（截取掉盘符）后面的路径。
+            String strNew = (file1.getAbsolutePath().endsWith("\\") ? file1.getAbsolutePath():file1.getAbsolutePath() + "\\")+ strFile.substring(3);
+
+            //写到这个文件中
+            FileOutputStream fos = new FileOutputStream(strNew);
+            bos = new BufferedOutputStream(fos);
+
+            //一边读一边写
+            byte[] bytes = new byte[1024]; //一次复制1kb
+            int ioo = 0;
+            while ((ioo = bis.read(bytes)) != -1){
+                bos.write(bytes,0,ioo);
+            }
+
+            //刷新
+            fos.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (bis != null) {
+                try {
+                    bis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (bos != null) {
+                try {
+                    bos.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        //如果是一个文件的话，递归结束
+        return;
+    }
+
+    //获取源下的子目录
+    File[] file2 = file.listFiles();
+    if (file2 != null) {
+        for(File file3 : file2){
+            //获取所有文件的（包括目录和文件）绝对路径
+            //System.out.println(file3.getAbsolutePath());
+            //如果是一个目录
+            if(file3.isDirectory()){
+                //新建对应的目录
+                String str = file3.getAbsolutePath();//获取源目录
+
+                //获取目标目录
+                //判断是否是以斜杠(\)结尾
+                String strSub = (file1.getAbsolutePath().endsWith("\\") ? file1.getAbsolutePath():file1.getAbsolutePath() + "\\") + str.substring(3);
+
+                //新建一个File对象
+                File newFile = new File(strSub);
+
+                //判断目录是否存在，如果不存在就新建多重目录
+                if(!newFile.exists()){
+                    newFile.mkdirs();
+                }
+            }
+            //递归调用
+            copyDir(file3,file1);
+        }
+    }
+}
+```
+
+测试代码：
+
+```java
+@Test
+public void test3(){
+    long start = System.currentTimeMillis();
+    copyDir(new File("E:\\测试\\jdk7"), new File("E:\\测试\\复制后的地址"));
+    long end = System.currentTimeMillis();
+    System.out.println("所花时间为：" + (end - start));
+}
+```
+
+打印结果：
+
+<img src=".\images\image-20240116111410992.png" align="left">
+
+我们可以发现，缓冲流可以让我们的读写速度更快，读写的效率更高，复制所花的时间更少了。
+
+
+
+
+
+### 字符缓冲流特有方法
+
+字符缓冲流的基本方法与普通字符流调用方式一致，不再赘述，我们来看它们具备的特有方法。
+
+* BufferedReader：`public String readLine()`：读一行文字。
+* BufferedWriter：`public void newLine()`：写一行行分隔符，由系统属性定义符号。
+
+
+
+
 
 
 
