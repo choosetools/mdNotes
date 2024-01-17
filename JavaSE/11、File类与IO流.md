@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->                   
+>                      
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -1524,6 +1524,45 @@ public void test(){
 
 ### 2、转换流的理解
 
+转换流也是一种处理流，它提供了字节流和字符流之间的转换。在Java IO流中提供了两个转换流：**`InputStreamReader`** 和 **`OutputStreamWriter`**，这两个类都属于字符流。其中`InputStreamReader`将**字节输入流**转为**字符输入流**，继承自`Reader`。`OutputStreamWriter`是将**字符输出流**转为字节输出流，继承自`Writer`。
+
+
+
+众所周知，计算机中存储的数据都是二进制的数字，我们在电脑屏幕上看到的文字信息是将二进制转换之后显示的，两者之间存在**编码**和**解码**的过程，其互相转换必须遵循某种规则，即编码和解码都遵循同一种规则才能将文字信息正常显示，如果编码和解码使用了不同的规则，就会出现乱码的情况。
+
+* 编码：字符、字符串（能看懂的）→ 字节（看不懂的）
+* 解码：字节（看不懂的） → 字符、字符串（能看懂的）
+
+上面说的编码和解码过程需要遵循某种规则，这种规则就是不同的字符编码。我们刚刚学习编程的时候最早接触的就是ASCII码，它主要是用来显示英文和一些符号，到最后还有接触到别的编码规则常用的有：gb2312，gbk，utf-8等。它们分别属于不同的编码集。
+
+转换流的特点：是字符流和字节流之间的桥梁。
+
+​	可对读取到的字节数据经过指定编码转换成字符
+
+​	可对读取到的字符数据经过指定编码转换成字节
+
+**注意点：**
+
+> 我们在电脑上看到的文件，呈现给我们的实际上都是已经经过了编码后的，实际上存储在电脑中的就是一些二进制的数据。
+>
+> 我们使用转换流，实际上去转换的就是存储在电脑中的二进制数据，而不是经过编码后我们看到的数据。
+>
+> InputStreamReader将电脑中的二进制数据转换成我们指定编码集的编码
+>
+> OutputStreamWriter将编码后的数据转换成电脑中的二进制数据存储在磁盘中
+
+
+
+
+
+**那么何时使用转换流？**
+
+> ​	当字节和字符之间有转换动作时
+>
+> ​	流操作的数据需要编码和解码时
+
+
+
 **`作用：实现字节与字符之间的转换。`**
 
 <img src=".\images\2_zhuanhuan.jpg" style="zoom: 67%;" />
@@ -1536,9 +1575,143 @@ public void test(){
 
 
 
+即
+
+InputStreamReader可以将字节转换成指定编码类型的字符
+
+OutputStreamWriter可以将字符转换成指定编码类型的字节
 
 
 
+### 3、InputStreamReader
+
+* 转换流`java.io.InputStreamReader`，是Reader的子类，是**字符流**，是从字节流到字符流的桥梁。它读取字节，并使用指定的字符集将其解码为字符。它的字符集可以由名称指定，也可以接受平台的默认字符集。
+* **该流的作用**：**`将存储在磁盘上的二进制数据，通过指定的字符编码集，将其转换成字符数据`**。
+* **构造器：**
+  * `InputStreamReader(InputStream in)`：创建一个使用默认字符集的字符流。
+  * `InputStreamReader(InputStream in, String charsetName)`：创建一个指定字符集的字符流。
+
+案例：
+
+```java
+@Test
+public void test1(){
+    File file = new File("C:\\Users\\14036\\Desktop\\test.txt");
+    InputStreamReader isr = null;
+    try {
+        FileInputStream fis = new FileInputStream(file);
+        //使用GBK编码集进行解码
+        isr = new InputStreamReader(fis,"GBK");
+        char[] cBuffer = new char[100];
+        int charData;
+        //读取文件中的二进制字节数据，读入到内存中，转换成指定编码集的字符
+        while ((charData = isr.read(cBuffer))!= -1){
+            System.out.println(new String(cBuffer, 0, charData));
+        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (isr != null) {
+                isr.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+
+
+打印结果：
+
+<img src=".\images\image-20240117155351553.png" align="left">
+
+为什么会出现乱码？
+
+因为test.txt文件是使用utf-8编码集进行编码（字符转换成二进制字节）的，即将指定的字符根据编码集转换成二进制数据，所以我们去解码（二进制字节转换成字符）时，也需要使用utf-8编码集进行解码，如果使用GBK，就会出现乱码的情况。
+
+对于文件中的英文字符，则不会出现乱码，因为GBK和utf-8都向下兼容了ASCII码。
+
+
+
+**注意点：**
+
+> **InputStreamReader`解码集`没得选，`必须与`File对应文件编码时的`编码集一致`，这样才不会出现乱码。**
+>
+> 因为在字符使用不同的编码集编码成二进制数据，需要使用相同的解码集解码成字符。
+
+### 4、OutputStreamWriter
+
+* 转换流`java.io.OutputStreamWriter`，是Writer的子类，属于字符流，是从字符流到字节流的桥梁。使用指定的字符集将字符编码为字节。它的字符集可以由名称指定，也可以接受平台的默认字符集。
+* 构造器：
+  * **`OutputStreamWriter(OutputStream in)`**：创建一个使用默认字符集的字符流。
+  * **`OutputStreamWriter(OutputStream in, String charsetName)`**：创建一个指定字符集的字符流。
+
+
+
+**注意：**
+
+> OutputStreamWriter是将字符编码成二进制数据，可以根据需要使用不同的编码集。
+
+### 5、使用案例
+
+需求：将gbk格式的文件转换成utf-8格式的文件存储、
+
+注意：InputStreamReader设置的编码集，必须是和原文件的解码集一样，否则将文件的二进制数据转换成字符时，会出现乱码。
+
+而且，由于`InputStreamReader`和`OutputStreamWriter`是**字符流**，所以**只能用于`字符类型的文件`进行编码集的转换**。
+
+代码如下：
+
+```java
+@Test
+public void test2(){
+    File srcFile = new File("C:\\Users\\14036\\Desktop\\test.txt");
+    File destFile = new File("C:\\Users\\14036\\Desktop\\复制后的文件.txt");
+
+    InputStreamReader isr = null;
+    OutputStreamWriter osw = null;
+    try {
+        //GBK是解码集，InputStreamReader的解码集必须与原文件的编码集一致
+        isr = new InputStreamReader(new FileInputStream(srcFile), "GBK");
+        //参数2的uft-8是字符流转换成字节流的编码集，是将内存中的字符转换成文件中的字节使用到的编码集
+        osw = new OutputStreamWriter(new FileOutputStream(destFile), "utf-8");
+
+        char[] cBuffer = new char[1024];
+        int len;
+        while ((len = isr.read(cBuffer)) != -1){
+            osw.write(cBuffer, 0, len);
+        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (isr != null) {
+                isr.close();
+            }
+            if (osw != null) {
+                osw.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+原文件：
+
+![image-20240117162520173](.\images\image-20240117162520173.png)
+
+复制后的文件：
+
+![image-20240117162551137](.\images\image-20240117162551137.png)
+
+
+
+### 6、字符编码和字符集详解
 
 
 
