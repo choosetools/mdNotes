@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->                               
+>                                  
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -2241,11 +2241,213 @@ class Person implements Serializable{
 
 
 
-
-
-
-
 # 其他流
 
+## 标准输入流、输出流
 
+* **`System.in`**和**`System.out`**分别代表了系统标准的输入和输出设备
+* 默认输入设备是：**键盘**；默认输出设备是：**显示器**
+* System.in的类型是`InputStream`
+* System.out的类型是`PrintStream`，其父类是FilterOutputStream，FilterOutputStream是OutputStream的子类。
+* 重定向：通过System类的`setIn()`，`setOut()`方法对默认设备进行改变。
+  * **`public static void setIn(InputStream in)`**
+  * **`public static void setOut(PrintStream out)`**
+
+举例：
+
+从键盘输入字符串，要求将读取到的整行字符串转成大写输出。然后继续进行输入操作，知道输入"e"或"exit"时，退出程序。
+
+```java
+@Test
+public void test(){
+    System.out.println("请输入信息（退出输入e或exit）：");
+
+    BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+    String s = null;
+    try {
+        while ((s = br.readLine()) != null){
+            if ("e".equalsIgnoreCase(s) || "exit".equalsIgnoreCase(s)){
+                System.out.println("安全提出！");
+                break;
+            }
+            //将读取到的整行字符转成大写输出
+            System.out.println("-->：" +s.toUpperCase());
+            System.out.println("继续输入信息：");
+        }
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            br.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+**这里为什么要使用InputStreamReader？**
+
+InputStreamReader是转换流，用处是将字节流转换成字符流。System.in默认从键盘输入，是一个字节流，我们需要从键盘输入字符串，将字符串转换成大写输出，那么就需要获取从键盘输入的信息，将其转换成字符串，也就需要转换流。
+
+
+
+**这里为什么要使用BufferedReader，为什么不直接使用InputStreamReader呢？**
+
+BufferedReader提供了一个新的方法：`readLine()`，表示读取一行数据。
+
+如果我们只使用InputStreamReader，这个类里面没有读取一行数据的方法，只有读取一个一个的数据，或者将读取的数据放到char[]数组中的方法。所以，我们需要使用到BufferedReader套在InputStreamReader上。
+
+
+
+
+
+**拓展**：
+
+System类中有三个常量对象：System.out、System.in、System.err
+
+查看System类中这三个常量对象的声明：
+
+![image-20240118153707541](.\images\image-20240118153707541.png)
+
+![image-20240118153733611](.\images\image-20240118153733611.png)
+
+![image-20240118153756823](.\images\image-20240118153756823.png)
+
+对其我们有一些疑问：
+
+* 这三个常量对象有final声明，但是却初始化为null。final声明的常量一旦赋值就不能修改，那么这三个常量声明有什么意义？
+* 这三个常量对象为什么要小写？常量按照命名规范不是应该大写吗？
+* 这三个常量有set方法，final声明的常量不是不能修改值吗？set方法是如何修改它们的值的？
+
+根据上述的疑问，我们打开setIn()方法查看：
+
+![image-20240118154203725](.\images\image-20240118154203725.png)
+
+打开setIn0()方法：
+
+![image-20240118154255249](.\images\image-20240118154255249.png)
+
+我们可以看到，setIn()方法中实际对in、out和err常量进行操作的都使用了**`native`修改**。使用native就表示这个方法不是使用Java语言来实现的，而是使用C或C++实现。
+
+所以，我们可以得出一个结论：
+
+> final声明的常量，表示在`Java的语法系统`中它们的值**不可被修改**，但如果使用`C/C++语言`则**可以进行修改**。
+>
+> 这三个常量对象的值是由C/C++等系统函数进行初始化和修改值的，所以它们故意没有用大写，也有set()方法。
+
+
+
+
+
+## 打印流
+
+* 实现将基本数据类型的数据格式转化为字符串输出。
+
+* 打印流：`PrintStream`和`PrintWriter`
+
+* PrintStream 打印的所有字符都使用平台的默认字符编码集转换为字节。
+
+  在需要读入的是字符，而不是字节的情况下，应该使用 PrintWriter 类去打印字符。
+
+  * 提供了一系列重载的print()和println()方法，用于多种数据类型的输出
+
+  ![image-20220131021502089](.\images\image-20220131021502089.png)
+
+  * PrintStream和PrintWriter的输出不会抛出IOException异常
+  * PrintStream和PrintWriter有自动flush()功能
+  * System.out返回的是PrintStream的实例
+
+* **构造器**
+
+  * PrintStream(File file) ：创建具有指定文件且不带自动行刷新的新打印流。 
+  * PrintStream(File file, String csn)：创建具有指定文件名称和字符集且不带自动行刷新的新打印流。 
+  * PrintStream(OutputStream out) ：创建新的打印流。 
+  * PrintStream(OutputStream out, boolean autoFlush)：创建新的打印流。 autoFlush如果为 true，则每当写入 byte 数组、调用其中一个 println 方法或写入换行符或字节 ('\n') 时都会刷新输出缓冲区。
+  * PrintStream(OutputStream out, boolean autoFlush, String encoding) ：创建新的打印流。 
+  * PrintStream(String fileName)：创建具有指定文件名称且不带自动行刷新的新打印流。 
+  * PrintStream(String fileName, String csn) ：创建具有指定文件名称和字符集且不带自动行刷新的新打印流。
+
+使用案例：
+
+```java
+@Test
+public void test() {
+    PrintStream ps = null;
+    try {
+        ps = new PrintStream("io.txt");
+        ps.println("hello");
+        ps.println(1);
+        ps.println("adjpajd");
+        ps.println(343);
+
+        //System.out默认是控制台打印出来
+        //这里去设置了输出的方式，使用的是指定文件输出，那么就会输出到io.txt中
+        System.setOut(ps);
+        System.out.println("你好！Java");
+    } catch (FileNotFoundException e) {
+        throw new RuntimeException(e);
+    }finally {
+        if (ps != null) {
+            ps.close();
+        }
+    }
+}
+```
+
+io.txt显示结果：
+
+<img src=".\images\image-20240118162506167.png" align="left">
+
+
+
+
+
+### 打印流的应用：自定义一个打印日志信息工具
+
+日志信息工作类：
+
+```java
+public class Logger {
+    public static void log(String msg){
+        PrintStream out = null;
+        try {
+            
+            //由于日志信息肯定不能够覆盖，所以需要在PrintStream中传入FileOutputStream对象参数
+            //FileOutputStream对象的构造器第二个参数需要设置成true，表示在后面加上数据
+            out = new PrintStream(new FileOutputStream("log.txt", true));
+            
+            //改变系统输出方向
+            System.setOut(out);
+            
+            //获取当前的时间
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss SSS");
+            String time = sdf.format(new Date());
+            
+            //打印日志信息，打印到指定文件中
+            System.out.println(time + "：" + msg);
+            
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }finally {
+            if (out != null) {
+                //关闭输出流
+                out.close();
+            }
+        }
+    }
+}
+```
+
+打印信息测试：
+
+```java
+public class LogTest {
+	public static void main(String[] agrs){
+        Logger.log("调用了System类的gc()方法，建议启动垃圾回收");
+        Logger.log("调用了TeamView的addMember()方法");
+        Logger.log("用户尝试进行登录，验证失败");
+	}
+}
+```
 
