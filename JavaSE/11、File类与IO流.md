@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->                                  
+>                                     
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -2450,4 +2450,140 @@ public class LogTest {
 	}
 }
 ```
+
+
+
+
+
+## Scanner类
+
+构造方法
+
+* Scanner(File source) ：构造一个新的 Scanner，它生成的值是从指定文件扫描的。 
+* Scanner(File source, String charsetName) ：构造一个新的 Scanner，它生成的值是从指定文件扫描的。 
+* Scanner(InputStream source) ：构造一个新的 Scanner，它生成的值是从指定的输入流扫描的。 
+* Scanner(InputStream source, String charsetName) ：构造一个新的 Scanner，它生成的值是从指定的输入流扫描的。
+
+常用方法：
+
+* boolean hasNextXxx()： 如果通过使用nextXxx()方法，此扫描器输入信息中的下一个标记可以解释为默认基数中的一个 Xxx 值，则返回 true。
+* Xxx nextXxx()： 将输入信息的下一个标记扫描为一个Xxx
+
+```java
+package com.atguigu.systemio;
+
+import org.junit.Test;
+
+import java.io.*;
+import java.util.Scanner;
+
+public class TestScanner {
+
+    @Test
+    public void test01() throws IOException {
+        Scanner input = new Scanner(System.in);
+        PrintStream ps = new PrintStream("1.txt");
+        while(true){
+            System.out.print("请输入一个单词：");
+            String str = input.nextLine();
+            if("stop".equals(str)){
+                break;
+            }
+            ps.println(str);
+        }
+        input.close();
+        ps.close();
+    }
+    
+    @Test
+    public void test2() throws IOException {
+        Scanner input = new Scanner(new FileInputStream("1.txt"));
+        while(input.hasNextLine()){
+            String str = input.nextLine();
+            System.out.println(str);
+        }
+        input.close();
+    }
+}
+```
+
+## apache-common包的使用
+
+### 介绍
+
+IO技术开发中，代码量很大，而且代码的重复率较高，为此Apache软件基金会，开发了IO技术的工具类`commonsIO`，大大简化了IO开发。
+
+Apahce软件基金会属于第三方，（Oracle公司第一方，我们自己第二方，其他都是第三方）我们要使用第三方开发好的工具，需要添加jar包。
+
+### 导包及举例
+
+- 在导入commons-io-2.5.jar包之后，内部的API都可以使用。
+
+
+ ![image-20220416004246436](C:/Users/14036/Desktop/Java资料/01_课件与电子教材/尚硅谷_第15章_File类与IO流/images/image-20220416004246436.png)
+
+- IOUtils类的使用
+
+```java
+- 静态方法：IOUtils.copy(InputStream in,OutputStream out)传递字节流，实现文件复制。
+- 静态方法：IOUtils.closeQuietly(任意流对象)悄悄的释放资源，自动处理close()方法抛出的异常。
+```
+
+```java
+public class Test01 {
+    public static void main(String[] args)throws Exception {
+        //- 静态方法：IOUtils.copy(InputStream in,OutputStream out)传递字节流，实现文件复制。
+        IOUtils.copy(new FileInputStream("E:\\Idea\\io\\1.jpg"),new FileOutputStream("E:\\Idea\\io\\file\\柳岩.jpg"));
+        //- 静态方法：IOUtils.closeQuietly(任意流对象)悄悄的释放资源，自动处理close()方法抛出的异常。
+       /* FileWriter fw = null;
+        try {
+            fw = new FileWriter("day21\\io\\writer.txt");
+            fw.write("hahah");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+           IOUtils.closeQuietly(fw);
+        }*/
+    }
+}
+```
+
+- FileUtils类的使用
+
+```java
+- 静态方法：void copyDirectoryToDirectory(File src,File dest)：整个目录的复制，自动进行递归遍历
+          参数:
+          src:要复制的文件夹路径
+          dest:要将文件夹粘贴到哪里去
+             
+- 静态方法：void writeStringToFile(File file,String content)：将内容content写入到file中
+- 静态方法：String readFileToString(File file)：读取文件内容，并返回一个String
+- 静态方法：void copyFile(File srcFile,File destFile)：文件复制
+```
+
+```java
+public class Test02 {
+    public static void main(String[] args) {
+        try {
+            //- 静态方法：void copyDirectoryToDirectory(File src,File dest);
+            FileUtils.copyDirectoryToDirectory(new File("E:\\Idea\\io\\aa"),new File("E:\\Idea\\io\\file"));
+
+
+            //- 静态方法：writeStringToFile(File file,String str)
+            FileUtils.writeStringToFile(new File("day21\\io\\commons.txt"),"柳岩你好");
+
+            //- 静态方法：String readFileToString(File file)
+            String s = FileUtils.readFileToString(new File("day21\\io\\commons.txt"));
+            System.out.println(s);
+            //- 静态方法：void copyFile(File srcFile,File destFile)
+            FileUtils.copyFile(new File("io\\yangm.png"),new File("io\\yangm2.png"));
+            System.out.println("复制成功");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+
 
