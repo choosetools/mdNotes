@@ -117,7 +117,7 @@ public static void main(String[] args) {
 >        File file = new File("d://abc//123//java.txt");
 >        System.out.println(file.getPath());
 >        System.out.println(file.getAbsolutePath());
->                                     
+>                                        
 >        File file1 = new File("abc//123//java.txt");
 >        System.out.println(file1.getPath());
 >        System.out.println(file1.getAbsolutePath());
@@ -975,8 +975,6 @@ public void test8(){
 >
 > 非文本文件：.doc、.xls、.ppt、.pdf、.mp3、.mp4、.jpg等
 
-
-
 ### 使用文件流复制目录：
 
 ```java
@@ -1060,6 +1058,61 @@ private static void copyDir(File file, File file1) {
     }
 }
 ```
+
+
+
+## `ByteArrayOutputStream`字节数组输出流
+
+`ByteArrayOutputStream`，可以用来解决字节流获取字符文件数据，而出现乱码的现象。
+
+在我们之前学过，如果使用字节流去获取字符型数据，并将其打印到控制台上，可能会出现乱码，而`ByteArrayOutputStream`流可以解决这一问题。
+
+它虽然是**输出流**，但是却不需要指定文件输出地址，而是将数据写入到内存中，其内部维护了一个**`byte`类型的数组**，它会将数据write()输出到自身内部的byte数组中。这样一来，就会将字节输入流的所有字节数据，全部写入到byte数组中，就不会出现因为字符转换为字节后，因字节被拆分而造成的乱码现象。
+
+**使用方式案例代码：**
+
+```java
+@Test
+public void test(){
+    FileInputStream fis = null;
+    //创建ByteArrayOutputStream对象，无需指定打印文件地址
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    try {
+        fis = new FileInputStream(new File("test.txt"));
+        byte[] buffer = new byte[5];
+        int len;
+        StringBuilder str = new StringBuilder();
+        while ((len = fis.read(buffer)) != -1){
+            //打印，这里接收的是其内部的byte数组
+            baos.write(buffer, 0, len);
+        }
+        System.out.println(baos.toString());
+    } catch (IOException e) {
+        throw new RuntimeException(e);
+    }finally {
+        try {
+            if (fis != null) {
+                fis.close();
+            }
+            baos.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+test.txt文件内容：
+
+![image-20240122201453371](.\images\image-20240122201453371.png)
+
+**打印结果：**
+
+<img src=".\images\image-20240122201515048.png" align="left">
+
+此时，无论使用多长的byte[]数组去接收输入的数据，都不会出现乱码现象。
+
+
 
 
 
