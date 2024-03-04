@@ -17,7 +17,9 @@ LIMIT <限制行数>;
 
 ![SQL查询语句的执行顺序解析](.\images\format,png)
 
-# todo!
+## 1、FROM 执行笛卡尔积
+
+FROM才是SQL语句执行的第一步，并非SELECT。对FROM子句中的前两个表执行笛卡尔积（交叉连接），生成虚拟表VT1，获取不同数据源的数据集。
 
 
 
@@ -76,7 +78,7 @@ LIMIT 3;
 
 
 
-# 基本的SELECT语句
+# 一、基本的SELECT语句
 
 ## 1、SELECT...
 
@@ -386,7 +388,7 @@ WHERE s > 10000;
 
 
 
-# 运算符
+# 二、运算符
 
 > **字符串存在`隐式转换`，如果用来与数值进行运算，则会将其转换成数值，若转换不成功，则转换成数值0。**
 >
@@ -882,7 +884,7 @@ FROM DUAL;
 
 
 
-### 4、位运算符（使用的较少）
+## 4、位运算符（使用的较少）
 
 位运算符是在二进制数上进行计算的运算符。位运算符会现将操作数变成二进制数，然后进行位运算，最后将计算结果从二进制变为十进制。
 
@@ -1025,7 +1027,7 @@ SELECT 1 << 2, 4 << 2;
 
 
 
-# 排序与分页
+# 三、排序与分页
 
 ## 1、排序
 
@@ -1217,13 +1219,13 @@ ORDER BY department_id DESC, salary ASC
 
 
 
-# 多表查询
+# 四、多表查询
 
 多表查询，也称为关联查询，指两个或多个表一起完成查询操作。
 
 前提条件：这些一起查询的表之间是有关系的（一对一、一对多），它们之间一定是有关联字段，这个关联字段可能建立了外键，也可能没有建立外键。比如：员工表和部门表，这两个表依靠“部门编号”进行关联。
 
-## 笛卡尔积的说明
+## 1、笛卡尔积的说明
 
 案例：
 
@@ -1354,19 +1356,871 @@ WHERE emp.department_id = dep.department_id AND dep.location_id = locat.location
 
 ![image-20240302111150828](.\images\image-20240302111150828.png)
 
-## 对等值连接与非等值连接的说明
+## 2、多表查询的分类
+
+* **角度一：等值连接 vs 非等值连接**
+* **角度二：自连接 vs 非自连接**
+* **角度三：内连接 vs 外连接**
+
+### 2.1、等值连接 vs 非等值连接
+
+等值连接，意思就是表之间的连接关系是使用=进行连接的。
+
+非等值连接就是与之相反，不是使用=进行连接。
+
+之前的例子都是使用等值连接进行的，这里举一个非等值连接的例子：
+
+有一个表job_grades，这个表是工作等级表，根据等级有一个工资的范围：
+
+```sql
+SELECT *
+FROM job_grades;
+```
+
+![image-20240302131122922](.\images\image-20240302131122922.png)
+
+可以看到，这里每一个等级都有一个范围。现在有一个需求，根据员工的工资，查询出员工所属的等级，这里就会使用到非等值连接的多表查询：
+
+```sql
+SELECT last_name, salary, grade_level
+FROM employees e, job_grades j
+WHERE e.salary BETWEEN j.lowest_sal AND j.highest_sal;
+```
+
+查询结果：
+
+![image-20240302131759756](.\images\image-20240302131759756.png)
+
+### 2.2、自连接 vs 非自连接
+
+什么是自连接？什么是非自连接？
+
+自连接，意思就是自己连接自己。
+
+非自连接，意思就是自己表连接其他表。
+
+之前的案例全都是非自连接，即不同的表之间进行连接查询的。
+
+但是，如果是需要将一张表上的信息，分别列出两套不同的信息时，就需要使用到自连接。
+
+案例：查询员工id，员工姓名及其管理者的id和姓名
+
+在employees表中，既有员工id信息employee_id，员工姓名last_name,也有其管理者的id信息manager_id，那么，我们就可以根据manager_id查询出其管理者的姓名，也是在同一张表上的last_name。可以将employees作为两张表，一个表的manager_id连接上另一张表的employee_id，就可以查询出管理者的last_name了。
+
+```sql
+SELECT emp.employee_id, emp.last_name, emp.manager_id,man.last_name as manager_name
+FROM employees as emp, employees as man
+WHERE emp.manager_id = man.employee_id;
+```
+
+查询结果：
+
+![image-20240302133024560](.\images\image-20240302133024560.png)
+
+
+
+### 2.3、内连接与外连接
+
+（这种很重要，请查看后面的笔记）
+
+
+
+## 3、内连接与外连接
+
+### 什么是内连接，什么是外连接？
+
+* **内连接**：把两个表中满足的数据查询出来，合并具有同一列的两个以上的表的行，**`结果集中不包含一个表与另一个表不匹配的行`**
+
+* **外连接**：两个表在连接过程中除了返回满足条件的行以外，**`还返回左（或右）表中不满足条件的行，这种连接成为左（或右）外连接`**。没有匹配的行时，结果表中相应的列为空（NULL）。
+
+* **外连接分类**：`左外连接`、`右外连接`、`满外连接`
+
+* 如果是左外连接，则连接条件中左边的表也称为`主表`，右边的表称为`从表`。
+
+  如果是右外连接，则连接条件中右边的表也称为`主表`，左边的表称为`从表`。
+
+  > 内连接与外连接的**区别**就在于：
+  >
+  > 内连接只会查询出多个表中满足匹配条件（ON条件）的数据；
+  >
+  > 外连接会将主表中不满足匹配条件（ON条件）的数据都返回。
+
+  虽然外连接会返回主表中不匹配条件的数据，但是如果还有其他的筛选条件，且这些条件会将不匹配条件的数据去除，那么实际结果集中还是不会包含这些数据。
+
+我们之前所学习的：
+
+```sql
+SELECT employee_id, department_name
+FROM employees, departments
+WHERE employees.department_id = departments.department_id
+```
+
+都是内连接。
+
+即，当employees表或depatments表中有不满足条件的数据时（employees.department_id = departments.department_id），此时就会把信息筛选掉，结果集中不会包含。
+
+比如，当employees表中有一个数据的department_id为NULL：
+
+![image-20240302142923799](.\images\image-20240302142923799.png)
+
+此时，由于是内连接，且WHERE子句的筛选条件是返回结果为1，但由于=等于运算符左右两边有一个为NULL，所以返回结果也为NULL，此时不满足条件，就会在结果集中筛选掉该数据，所以该条数据不会查询到。
+
+上述的案例使用的是`SQL92`的语法。
+
+但，如果我们想在结果集中显示这条数据该怎么办？
+
+这个时候就需要使用到外连接。
+
+将employees表作为主表，让主表的数据都显示，若从表中没有匹配的数据，该条数据对应的从表的查询结果为NULL。
+
+
+
+### SQL99语法实现多表查询（不推荐SQL92语法）
+
+#### 1、基本语法
+
+* 使用**`[INNER/LEFT/RIGHT] JOIN...ON`**子句创建连接的语法结构：
+
+  ```sql
+  SELECT table1.column, table2.column, table3.column
+  FROM table1
+  	[INNER/LEFT/RIGHT] JOIN table2 ON tabl1和table的连接条件
+  		[INNER/LEFT/RIGHT] JOIN table3 ON table2和table3的连接条件
+  ```
+
+  SQL99采用的这种嵌套结构非常清爽、层次性更强、可读性更强，即使再多的表进行连接也都清晰可见。
+
+* **语法说明：**
+
+  * 可以使用ON子句指定额外的连接条件。
+  * 这个连接条件是与其他条件分开的。
+  * ON子句使语句具有更高的可读性。
+  * 关键字JOIN、INNER JOIN、CROSS JOIN的含义是一样的，都表示内连接。
+
+#### 2、内连接（INNER JOIN）的实现
+
+> **`内连接的结果 = 左右表匹配的数据`**
+
+* **语法：**
+
+  ```sql
+  SELECT 字段条件
+  FROM A表 
+  INNER JOIN B表
+  ON 关联条件
+  WHERE等其他子句;
+  ```
+
+* 案例：查询员工的姓名，部门名和城市名
+
+  ```sql
+  SELECT e.last_name, d.department_name, l.city
+  FROM employees as e
+  INNER JOIN departments as d
+  ON e.department_id = d.department_id
+  INNER JOIN locations as l
+  ON d.location_id = l.location_id
+  ```
+
+  查询结果：
+
+  ![image-20240302152532042](.\images\image-20240302152532042.png)
+
+
+
+#### `3、外连接（OUTER JOIN）的实现`
+
+OUTER可以省略。
+
+对于外连接而言，主表若有数据不满足匹配条件，在结果集中依然可以得到一条数据结果；但是主表中只要这一条数据满足了匹配条件，已经查询得到一次了，就不会因为不满足匹配条件而出现。
+
+即，**`主表中的数据至少会出现一次`**。也可能会因为满足匹配条件而重复出现。
+
+如部门表与员工表，部门表作为主表，此时部门表中的部门信息可能会因为该部门有多个员工而多次出现，因为员工表中的信息较多，所以查询的结果的数据量肯定是与员工表信息数量相差无几。而外连接仅仅只是保证了，主表中的所有数据都会查询得到，不能保证数据量与主表相差无几。即只能保证部门表中的所有部门信息都可以查出来，就算不满足匹配条件。
+
+##### 3.1、左外连接（LEFT OUTER JOIN）
+
+此时，左表是主表，右表是从表。
+
+> **`左外连接的结果 = 左右表匹配的数据 + 左表没有匹配到的数据`**
+
+* **语法：**
+
+  ```sql
+  SELECT 字段列表
+  FROM A表
+  LEFT JOIN B表
+  ON 关联条件
+  WHERE等其他子句
+  ```
+
+* 案例：查询所有员工的last_name，department_name的信息
+
+  ```sql
+  SELECT last_name, department_name
+  FROM employees e 
+  LEFT JOIN departments d
+  ON e.department_id = d.department_id
+  ```
+
+  查询结果：
+
+  ![image-20240302153237574](.\images\image-20240302153237574.png)
+
+这里使用的是左外连接。employees表中的Grant信息的department_id是空NULL，实际上是不满足两表匹配条件e.department_id = d.department_id的，但是因为employees表是主表，departments表是从表，所以虽然Grant信息不满足匹配条件，但是依然会保留下来，这就是外连接。
+
+
+
+##### 3.2、右外连接（RIGHT OUTER JOIN）
+
+此时，右表是主表，左表是从表。
+
+> **`右外连接的结果 = 左右表匹配的数据 + 右表没有匹配到的数据`**
+
+* **语法**：
+
+  ```sql
+  SELECT 字段列表
+  FROM A表
+  RIGHT JOIN B表
+  ON 关联条件
+  WHERE等其他子句;
+  ```
+
+* 举例：
+
+  ```sql
+  SELECT e.last_name, d.department_id, d.department_name
+  FROM employees e
+  RIGHT JOIN departments d
+  ON e.department_id = d.department_id;
+  ```
+
+  执行结果：
+
+  ![image-20240302154722314](.\images\image-20240302154722314.png)
+
+  这里查询的结果，会将employees表与departments表中满足匹配条件e.department_id = d.department_id的数据查询出来，并且若在departments表中包含数据不匹配条件，也在结果集中被返回。比如上例结果中返回的Treasury，其就是在employees表中没有department_id匹配。
+
+
+
+##### 3.3、满外连接（FULL OUTER JOIN）
+
+* 满外连接的结果 = 左右表匹配的数据 + 左表没有匹配到的数据 + 右表没有匹配得到的数据。
+* SQL99是支持满外连接的，使用FULL JOIN或FULL OUTER JOIN来实现。
+* 需要注意的是，MySQL不支持FULL JOIN，但是可以使用LEFT JOIN `UNION` RIGHT JOIN代替。
+
+
+
+#### 4、案例分析
+
+**案例1**：查询90号部门员工的job_id和location_id
+
+这涉及到两个表，分别是employees员工表和departments部门表，两个表使用department_id关联。其中，job_id是属于employees表的，location_id是属于departments表的。
+
+那么，显而易见，实现上述需求的SQL代码如下所示：
+
+```sql
+SELECT e.job_id, d.location_id
+FROM employees e INNER JOIN departments d
+ON e.department_id = d.department_id
+WHERE e.department_id = 90;
+```
+
+查询结果：
+
+![image-20240303224415767](.\images\image-20240303224415767.png)
+
+有一个问题：为什么这里使用INNER JOIN，使用LEFT JOIN或RIGHT JOIN可以吗？
+
+答案其实也是可以的，我们来看看使用左连接的查询结果：
+
+```sql
+SELECT e.job_id, d.location_id
+FROM employees e LEFT JOIN departments d
+ON e.department_id = d.department_id
+WHERE e.department_id = 90;
+```
+
+![image-20240303225301327](.\images\image-20240303225301327.png)
+
+为什么呢？为什么这里既可以使用INNER JOIN，也能使用LEFT JOIN呢？
+
+原因在于这里的WHERE e.department_id = 90条件。
+
+我们可以知道，外连接的作用，是去将主表中不满足匹配条件的数据也放入结果集中返回。而在这例中，不满足匹配条件的数据是employees表或departments表中department_id为NULL的数据。
+
+但是，在该例中，还有一个筛选条件是WHERE e.department_id = 90，而这个筛选条件，则会帮助我们将两个表中department_id为NULL的数据也去除掉，所以此时是使用内连接还是外连接则不那么重要了，只要两个表使用department_id连接了起来，并且筛选出了department_id为90的数据，就一定得到的是两个表信息都存在的数据。
+
+
+
+**案例2**：选择city在Toronto工作的员工的last_name，job_id，department_id，department_name。
+
+这里涉及到三个表：employees表、departments表和locations表。其中，employees表与departments表之间使用department_id进行关联，departments表与locations表之间使用location_id关联。
+
+首先看条件，要求city在Toronto，即locations表中的city字段要求为Toronto。
+
+我们来考虑一下使用内连接还是外连接。首先，因为city为Toronto，则locations表中的city字段一定不为NULL，此时若选择外连接，也会将employees表中因不匹配数据而致使连接的其他表字段为NULL的数据也筛选出去，所以，其实这里使用外连接和内连接的效果一样。
+
+```sql
+SELECT e.last_name, e.job_id, d.department_id, d.department_name
+FROM employees e
+[INNER / LEFT] JOIN departments d
+ON e.department_id = d.department_id
+[INNER / LEFT] JOIN locations l
+ON d.location_id = l.location_id
+WHERE l.city = 'Toronto'
+```
+
+
+
+#### 5、UNION的使用
+
+**`合并查询结果`** 利用UNION关键字，可以给出多条SELECT语句，并将它们的结果组合成单个结果集。
+
+**合并时，两个表对应的列数和数据类型必须相同，并且相互对应**。各个SELECT语句之间使用`UNION`或`UNION ALL`关键字分隔。
+
+**语法格式：**
+
+```sql
+SELECT column,...FROM table1
+UNION [ALL]
+SELECT column,...FROM table2
+```
+
+**`UNION操作符`**
+
+![image-20240302165420654](.\images\image-20240302165420654.png)
+
+UNION操作符返回两个查询的结果集的并集，去除重复记录。
+
+**`UNION ALL操作符`**
+
+![image-20240302165511297](.\images\image-20240302165511297.png)
+
+UNION ALL操作符返回两个查询的结果集的并集。对于两个结果集的重复部分，不去重。
+
+> 注意：执行UNION ALL语句时所需要的资源比UNION语句少。如果明确知道合并数据后的结果数据不存在重复数据，或者不需要去除重复的数据，就尽量使用UNION ALL语句，以提高数据查询的效率。
+
+举例：查询部门编号>90或邮箱包含a的员工信息
+
+```sql
+SEELCT * FROM employees WHERE email LIKE '%a%'
+UNION
+SELECT * FROM employees WHERE department_id > 90;
+```
 
 
 
 
 
-## 对自连接与非自连接的说明
+#### 5、7种SQL JOIN的实现
+
+![image-20240302171715612](.\images\image-20240302171715612.png)
+
+**代码实现**
+
+```sql
+#中图：内连接 A ∩ B
+SELECT employee_id,last_name,department_name
+FROM employees e INNER JOIN departments d
+ON e.department_id = d.department_id
+
+#左上图：左外连接
+SELECT employee_id, last_name, department_name
+FROM employees e LEFT JOIN departments d
+ON e.department_id = d.department_id
+
+#右上图：右外连接
+SELECT employee_id, last_name, department_name
+FROM employees e RIGHT JOIN departments d
+ON e.department_id = d.department_id
+
+#左中图：A - A ∩ B
+SELECT employee_id, last_name, department_name
+FROM employees e LEFT JOIN departments d
+ON e.department_id = d.department_id
+WHERE d.department_id IS NULL;
+
+#右中图：B - A ∩ B
+SELECT employee_id, last_name, department_name
+FROM employees e RIGHT JOIN departments d
+ON e.department_id = d.department_id
+WHERE e.department_id IS NULL;
+
+#左下图：满外连接
+#左中图 + 右上图 A ∪ B
+SELECT employee_id, last_name, department_name
+FROM employees e LEFT JOIN departments d
+ON e.department_id = d.department_id
+WHERE d.department_id IS NULL
+UNION ALL #没有去重操作，效率更高
+SELECT employee_id, last_name, department_name
+FROM employees e RIGHT JOIN departments d
+ON e.department_id = d.department_id
+
+#右下图
+#左中图 + 右中图 A ∪ B - A ∩ B 或者 (A - A∩B) ∪ (B - A∩B)
+SELECT employee_id, last_name, department_name
+FROM employees e LEFT JOIN departments d
+ON e.department_id = d.department_id
+WHERE d.department_id IS NULL
+UNION ALL
+SELECT employee_id, last_name, department_name
+FROM employees e RIGHT JOIN departments d
+ON e.department_id = d.department_id
+WHERE e.department_id IS NULL;
+```
+
+
+
+##### 语法格式小结
+
+* 左中图/右中图，查询表中与其他表不关联的字段
+
+  ![image-20240304112456330](.\images\image-20240304112456330.png)![image-20240304112514528](.\images\image-20240304112514528.png)
+
+  
+
+  ```sql
+  select 字段列表
+  from 查询的表 left join 关联表
+  on 关联条件
+  where 从表关联字段 is null
+  其他子句;
+  ```
+
+* 左下图，查询两个表中的所有信息，包含两个表中不关联的信息
+
+  ![image-20240304112635478](.\images\image-20240304112635478.png)
+
+  ```sql
+  #查询的结果是并集
+  #上部分查询的是A表中与B表不关联的数据，即 A - A ∩ B
+  select 字段列表
+  from A表 left join B表
+  on 关联条件
+  where B表的关联条件 IS NULL
+  其他子句
+  
+  union all #union all不会去重，相较于union效率更高
+  
+  select 字段列表
+  from A表 right join B表
+  on 关联条件
+  其他子句
+  #下部分查询的是所有B表的数据，即 B
+  #两部分加起来就是 A ∪ B
+  ```
+
+* 右下图，这部分就是将两个表的关联部分去除，只剩下两个表中不关联的部分
+
+  ![image-20240304113315556](.\images\image-20240304113315556.png)
+
+  ```sql
+  #A表非关联字段 ∪ B表非关联字段
+  select 字段列表
+  from A表 left join B表
+  on 关联条件
+  where 从表关联字段 is null
+  其他子句
+  
+  union
+  
+  select 字段列表
+  from A表 right join B表
+  on 关联条件
+  where 从表关联字段 is null
+  其他子句;
+  ```
+
+
+
+#### 6、SQL99语法的新特性
+
+##### 6.1、自然连接
+
+SQL99在SQL92的基础上提供了一些特殊语法，比如`NATURAL JOIN`用来表示自然连接。我们可以把自然连接理解为SQL92中的等值连接。它会帮你自动查询两张连接表中`所有相同的字段`，然后进行**`等值连接`**。
+
+比如：对于employees表和departments表而言，它们两张表中均有department_id和manager_id，此时我对它们两张表使用自然连接时：
+
+```sql
+SELECT employee_id, last_name, department_name
+FROM employees e NATURAL [INNER/LEFT/RIGHT] JOIN departments d;
+```
+
+相当于如下SQL代码：
+
+```sql
+SELECT employee_id, last_name, department_name
+FROM employees e [INNER/LEFT/RIGHT] JOIN departments d
+ON e.department_id = d.department_id
+AND e.manager_id = d.manager_id
+```
+
+即，它会去自动查询两张表中所有相等名称的字段，然后使用等值连接两张表。
+
+
+
+##### 6.2、USING连接
+
+当我们进行连接的时候，SQL99还支持使用USING指定数据表里的`同名字段`进行等值连接。但是只能配合JOIN一起使用。比如
+
+```sql
+SELECT employee_id, last_name, department_name
+FROM employees e [INNER/LEFT/RIGHT] JOIN departments d
+USING (department_id);
+```
+
+你能看出与自然连接NATURAL JOIN不同的是，USING指定了具体的相同的字段名称，你需要在USING的括号()中填入要指定的同名字段。同时使用`JOIN...USING`可以简化JOIN ON的等值连接。它相当于下面的SQL查询：
+
+```sql
+SELECT employee_id, last_name, department_name
+FROM employees e [INNER/LEFT/RIGHT] JOIN departments d
+ON e.department_id = d.department_id
+```
+
+
+
+**`注意！`**
+
+我们要**控制连接表的数量**。多表连接就相当于嵌套for循环一样，非常消耗资源，会让SQL查询性能下降得很厉害，因此不要连接不必要的表。
+
+
+
+# 五、单行函数
+
+## 1、函数的理解
+
+从函数定义的角度出发，我们可以把函数分为`内置函数`和`自定义函数`。在SQL语言中，同样也包括了内置函数和自定义函数。内置函数是系统内置的通用函数，而自定义函数四我们根据自己的需要编写的。
+
+### 1.1、不同DBMS函数的差异
+
+我们在使用SQL语言的似乎，不是直接和这门语言打交道，而是通过它使用不同的数据库软件，即DBMS。**`DBMS之间的差异性很大，远大于同一个语言不通版本之间的差异`**。实际上，只有很少的函数是被DBMS同时支持的。比如，大多数DBMS使用（||）或者（+）来做拼接符，而在MySQL中的字符串拼接函数concat()。大多数DBMS会有自己特定的函数，这就意味着**采用SQL函数的代码可移植性是很差的**，因此在使用函数的时候需要特别注意。
+
+### 1.2、MySQL的内置函数及分类
+
+MySQL提供了丰富的内置函数，这些函数使得数据的维护与管理更加方便，能够更好地提供数据的分析与统计功能，在一定程度上提高了开发人员进行数据分析与统计的效率。
+
+MySQL提供的内置函数从`实现的功能`角度可以分为数值函数、字符串函数、日期和时间函数、流程控制函数、加密与解密函数、获取MySQL信息函数、聚合函数等。这里，我将这些丰富的内置函数再分为两类：`单行函数`、`聚合函数（或多行函数、分组函数）`
+
+**`MySQL函数`**
+
+![image-20240304121456417](.\images\image-20240304121456417.png)
+
+**单行函数**
+
+* 操作数据对象
+* 接受参数返回一个结果
+* **只对一行进行变换**
+* **每行返回一个结果**
+* 可以嵌套
+* 参数可以是一列或一个值
+
+
+
+## 2、数值函数
+
+### 2.1、基本的数值函数
+
+| 函数                  | 用法                                                         |
+| --------------------- | ------------------------------------------------------------ |
+| ABS(x)                | 返回x的绝对值                                                |
+| SIGN(x)               | 返回x的符号。正数返回1，负数返回-1,0返回0                    |
+| PI()                  | 返回圆周率的值                                               |
+| CEIL(x),CEILING(x)    | 返回大于或等于某个值的最小整数                               |
+| FLOOR(x)              | 返回小于或等于某个值的最大整数                               |
+| LEAST(e1,e2,e3...)    | 返回列表中的最小值                                           |
+| GREATEST(e1,e2,e3...) | 返回列表中的最大值                                           |
+| MOD(x, y)             | 返回x除以y后的余数                                           |
+| RAND()                | 返回0~1的随机数                                              |
+| RAND(x)               | 返回0~1的随机数，其中x的值用作种子值，相同的x值会产生相同的随机数 |
+| ROUND(x)              | 返回一个对x的值进行四舍五入后，最接近于x的整数               |
+| ROUND(x, y)           | 返回一个对x的值进行四舍五入后最接近X的值，并保留到小数点后面y位 |
+| TRUNCATE(x,y)         | 返回数字x截断为y位小数的结果                                 |
+| SQRT(x)               | 返回x的平方根。当x的值为负数时，返回NULL                     |
+
+举例：
+
+```sql
+SELECT ABS(-123), ABS(32),SIGN(-23),SIGN(43),PI(),CEIL(32.32),CEILING(-43.23),FLOOR(32.32),FLOOR(-43.34),MOD(12,5);
+```
+
+![image-20240304124632065](.\images\image-20240304124632065.png)
+
+
+
+```sql
+SELECT RAND(), RAND(),RAND(10), RAND(10), RAND(-1), RAND(-1);
+```
+
+![image-20240304124822017](.\images\image-20240304124822017.png)
+
+
+
+**单行函数可以嵌套**：
+
+需求：生成一个0到100之间的数，要求保留两位小数
+
+```sql
+SELECT TRUNCATE(RAND() * 100,2);
+```
+
+执行结果：
+
+<img src=".\images\image-20240304130853455.png" align="left">
+
+### 2.2、角度与弧度互换函数
+
+| 函数       | 用法                                  |
+| ---------- | ------------------------------------- |
+| RADIANS(x) | 将角度转化为弧度，其中，参数x为角度值 |
+| DEGREES(x) | 将弧度转化为角度，其中，参数x为弧度值 |
+
+```sql
+select RADIANS(30),RADIANS(45),RADIANS(60),RADIANS(90),DEGREES(2 * PI()),DEGREES(RADIANS(60));
+```
+
+查询结果：
+
+![image-20240304131700256](.\images\image-20240304131700256.png)
+
+
+
+### 2.3、三角函数
+
+| 函数        | 用法                                                         |
+| ----------- | ------------------------------------------------------------ |
+| SIN(x)      | 返回x的正弦值，其中，参数x为弧度制                           |
+| ASIN(x)     | 返回x的反正弦值，即获取正弦为x的值。如果x的值不在-1到1之间，则返回NULL |
+| COS(x)      | 返回x的余弦值，其中，参数x为弧度值                           |
+| ACOS(x)     | 返回x的反余弦值，即获取余弦为x的值。如果x的值不在-1到1之间，则返回NULL |
+| TAN(x)      | 返回x的正切值，其中，参数x为弧度值                           |
+| ATAN(x)     | 返回x的反正切值，即返回正切值为x的值                         |
+| ATAN2(m, n) | 返回两个参数的反正切值                                       |
+| COT(x)      | 返回x的余切值，其中，x为弧度值                               |
+
+ATAN2(M, N)函数返回两个参数的反正切值。与ATAN(x)函数相比，ATAN2(M, N)需要两个参数，例如有两个点point(x1, y1)和point(x2, y2)，使用ATAN(x)函数计算反正切值为ATAN((y2-y1),(x2-x1))，使用ATAN2(M, N)计算反正切值则为ATAN2(y2-y1, x2-x1)。由使用方式可以看出，当x2-x1等于0时，ATAN(x)函数会报错，而ATAN2(M, N)仍然可以计算。
+
+```sql
+SELECT sin(RADIANS(30)), DEGREES(ASIN(1)),TAN(RADIANS(45)), DEGREES(ATAN(1)),DEGREES(ATAN2(1,1));
+```
+
+查询结果：
+
+![image-20240304141556308](.\images\image-20240304141556308.png)
+
+
+
+### 2.4、指数与对数
+
+| 函数                   | 用法                                                |
+| ---------------------- | --------------------------------------------------- |
+| POW(x, y), POWER(x, y) | 返回x的y次方                                        |
+| EXP(x)                 | 返回e的x次方，其中e是一个常数                       |
+| LN(x),LOG(x)           | 返回以e为底的x的对数，当x <= 0时，返回结果为NULL    |
+| LOG10(x)               | 返回以10为底的x的对数，当x <= 0时，返回的结果为NULL |
+| LOG2(x)                | 返回以2为底的x的对数，当x <= 0时，返回NULL          |
+
+```sql
+select POW(2,5), POWER(2,4), EXP(2),LN(10), LOG10(10), LOG2(4)
+```
+
+![image-20240304142128126](.\images\image-20240304142128126.png)
+
+
+
+### 2.5、进制间的转换
+
+| 函数            | 用法                     |
+| --------------- | ------------------------ |
+| BIN(x)          | 返回x的二进制编码        |
+| HEX(x)          | 返回x的十六进制编码      |
+| OCT(x)          | 返回x的八进制编码        |
+| CONV(x, f1, f2) | 返回f1进制数变成f2进制数 |
+
+```sql
+select POW(2,5), POWER(2,4), EXP(2),LN(10), LOG10(10), LOG2(4);
+```
+
+查询结果：
+
+![image-20240304142439138](.\images\image-20240304142439138.png)
 
 
 
 
 
-## 内连接与外连接
+## 3、字符串函数
+
+| 函数                           | 用法                                                         |
+| ------------------------------ | ------------------------------------------------------------ |
+| ASCII(s)                       | 返回字符串s中的第一个字符的ASCII码值                         |
+| CHAR_LENGTH(s)                 | 返回字符串s的字符数。作用与CHARACTER_LENGTH(s)相同           |
+| LENGTH(s)                      | 返回字符串s的字节数，和字符集有关                            |
+| CONCAT(s1, s2,...,sn)          | 连接s1，s2,...,sn为一个字符串                                |
+| CONCAT_WS(x,s1,s2,...,sn)      | 同CONCAT()函数，但是每个字符串之间要加上x                    |
+| INSERT(str,idx,len,replacestr) | 将字符串str从idx位置开始，len个字符长的子串替换为字符串replacestr |
+| REPLACE(str,a,b)               | 用字符串b替换字符串str中所有出现的字符串a                    |
+| UPPER(s)或UCASE(s)             | 将字符串s的所有字母转成为大写字母                            |
+| LOWER(s)或LCASE(s)             | 将字符串s的所有字母转成小写字母                              |
+| LEFT(str,n)                    | 返回字符串str最左边的n个字符                                 |
+| RIGHT(str,n)                   | 返回字符串str最右边的n个字符                                 |
+| LPAD(str,len,pad)              | 用字符串pad对str最左边进行填充，直到str的长度为len           |
+| RPAD(str,len,pad)              | 用字符串pad对str最右边进行填充，直到str的长度为len           |
+| LTRIM(s)                       | 去掉字符串s左侧的空格                                        |
+| RTRIM(s)                       | 去掉字符串s右侧的空格                                        |
+| TRIM(s)                        | 去掉字符串s开始与结尾的空格                                  |
+| TRIM(s1 FROM s)                | 去掉字符串s开始与结尾的s1                                    |
+| TRIM(LEADING s1 FROM s)        | 去掉字符串s开始处的s1                                        |
+| TRIM(TRAILING s1 FROM s)       | 去掉字符串s结尾处的s1                                        |
+| REPEAT(str, n)                 | 返回str重复n次的结果                                         |
+| SPACE(n)                       | 返回n个空格                                                  |
+| STRCMP(s1, s2)                 | 比较字符串s1,s2的ASCII码值的大小                             |
+| SUBSTR(s, index, len)          | 返回从字符串s的index位置其len个字符，作用与SUBSTRING(s,n,len)、MID(s,n,len)相同 |
+| LOCATE(substr, str)            | 返回字符串substr在字符串str中首次出现的位置，作用与POSITION(substr IN str)、INSTR(str,substr)相同。未找到，返回0. |
+| ELT(m,s1,s2,...,sn)            | 返回指定位置的字符串，如果m=1，则返回s1；如果m=2，则返回s2... |
+| FIELD(s,s1,s2,...,sn)          | 返回字符串s在字符串列表中第一次出现的位置                    |
+| FIND_IN_SET(s1,s2)             | 返回字符串s1在字符串s2中出现的位置。其中，字符串s2是一个以逗号分隔的字符串。 |
+| REVERSE(s)                     | 返回s反转后的字符串                                          |
+| NULLIF(value1,value2)          | 比较两个字符串，如果value1和value2相等，则返回NULL，否则返回value1. |
+
+> 注意：MySQL中，字符串的位置是从**`1`**开始的。
+
+```sql
+SELECT FIELD('mm','hello','msm','amma'), FIND_IN_SET('mm','hello,mm,amma');
+```
+
+![image-20240304152416152](.\images\image-20240304152416152.png)
+
+
+
+```sql
+SELECT NULLIF('mysql','mysql'),NULLIF('mysql','');
+```
+
+![image-20240304152513373](.\images\image-20240304152513373.png)
+
+## 4、日期和时间函数
+
+### 4.1、获取日期、时间
+
+| 函数                                                         | 用法                           |
+| ------------------------------------------------------------ | ------------------------------ |
+| **`CURDATE()`**，CURRENT_DATE()                              | 返回当前日期，只包含年、月、日 |
+| **`CURTIME()`**，CURRENT_TIME()                              | 返回当前时间，只包含时、分、秒 |
+| **`NOW()`** / SYSDATE() / CURRENT_TIMESTAMP() / LOCALTIME() / LOCALTIMESTAMP() | 返回当前系统日期和时间         |
+| UTC_DATE()                                                   | 返回UTC（世界标准时间）日期    |
+| UTC_TIME()                                                   | 返回UTC（世界标准时间）时间    |
+
+```sql
+SELECT CURDATE(), CURTIME(), NOW(), SYSDATE() + 0, UTC_DATE(), UTC_DATE() + 0, UTC_TIME(), UTC_TIME() + 0;
+```
+
+查询结果：
+
+![image-20240304153934185](.\images\image-20240304153934185.png)
+
+
+
+### 4.2、日期和时间戳的转换
+
+| 函数                     | 用法                                     |
+| ------------------------ | ---------------------------------------- |
+| UNIX_TIMESTAMP()         | 以UNIX时间戳的形式返回当前时间。         |
+| UNIX_TIMESTAMP(date)     | 将时间date以UNIX时间戳的形式返回。       |
+| FROM_UNIXTIME(timestamp) | 将UNIX时间戳的时间转换为普通格式的时间。 |
+
+```sql
+SELECT UNIX_TIMESTAMP(), UNIX_TIMESTAMP(NOW()),UNIX_TIMESTAMP(CURDATE()),UNIX_TIMESTAMP(CURRENT_TIME), UNIX_TIMESTAMP('2024-3-4 15:57:57'),FROM_UNIXTIME(1709539049);
+```
+
+查询结果：
+
+![image-20240304155845023](.\images\image-20240304155845023.png)
+
+
+
+### 4.3、获取月份、星期、星期数、天数等函数
+
+| 函数                                     | 用法                                           |
+| ---------------------------------------- | ---------------------------------------------- |
+| YEAR(date) / MONTH(date) / DAY(date)     | 返回具体的日期值                               |
+| HOUR(time) / MINUTE(time) / SECOND(time) | 返回具体的时间值                               |
+| MONTHNAME(date)                          | 返回月份：January,...                          |
+| DAYNAME(date)                            | 返回星期几：MONDAY, TUESDAY,...SUNDAY          |
+| WEEKDAY(date)                            | 返回周几，注意，周一是0，周二是1，...，周日是6 |
+| QUARTER(date)                            | 返回日期对应的季度，范围是1~4                  |
+| WEEK(date),WEEKOFYEAR(date)              | 返回一年中的第几周                             |
+| DAYOFYEAR(date)                          | 返回日期是一年中的第几天                       |
+| DAYEOFMONTH(date)                        | 返回日期位于所在月份的第几天                   |
+| DAYOFWEEK(date)                          | 返回周几，注意：周日是1，周一是2，...，周六是7 |
+
+举例：
+
+```sql
+SELECT YEAR(CURDATE()),MONTH(CURDATE()),DAY(CURDATE()),
+HOUR(CURTIME()),MINUTE(NOW()),SECOND(SYSDATE())
+FROM DUAL;
+```
+
+查询结果：
+
+![image-20240304162357519](.\images\image-20240304162357519.png)
+
+
+
+```sql
+SELECT MONTHNAME('2021-10-26'),DAYNAME('2021-10-26'),WEEKDAY('2021-10-26'),
+QUARTER(CURDATE()),WEEK(CURDATE()),DAYOFYEAR(NOW()),
+DAYOFMONTH(NOW()),DAYOFWEEK(NOW())
+FROM DUAL;
+```
+
+查询结果：
+
+![image-20240304162420205](.\images\image-20240304162420205.png)
+
+
+
+### 4.4、日期的操作函数
+
+| 函数                    | 用法                                       |
+| ----------------------- | ------------------------------------------ |
+| EXTRACT(type FROM date) | 返回指定日期中特定的部分，type指定返回的值 |
+
+EXTRACT(type FROM date)函数中type的取值与含义：
+
+![image-20240304163024007](.\images\image-20240304163024007.png)
+
+```sql
+SELECT EXTRACT(MINUTE FROM NOW()), EXTRACT(WEEK FROM NOW()), EXTRACT(QUARTER FROM NOW()), EXTRACT(MINUTE_SECOND FROM NOW());
+```
+
+查询结果：
+
+![image-20240304163227380](.\images\image-20240304163227380.png)
+
+
+
+### 4.5、时间和秒钟转换的函数
+
+| 函数                 | 用法                                                         |
+| -------------------- | ------------------------------------------------------------ |
+| TIME_TO_SEC(time)    | 将time转化为秒并返回结果值。转化的公式为：`小时*3600+分钟*60+秒` |
+| SEC_TO_TIME(seconds) | 将seconds描述转化为包含小时、分钟和秒的时间                  |
+
+举例：
+
+```sql
+SELECT TIME_TO_SEC(NOW()), SEC_TO_TIME(78288);
+```
+
+执行结果：
+
+![image-20240304163620923](.\images\image-20240304163620923.png)
+
+# 六、多行函数（聚合函数）
 
 
 
@@ -1378,19 +2232,7 @@ WHERE emp.department_id = dep.department_id AND dep.location_id = locat.location
 
 
 
-
-
-# 单行函数
-
-
-
-
-
-
-
-
-
-# 聚合函数
+# 七、GROUP BY与HAVING的使用
 
 
 
@@ -1400,9 +2242,9 @@ WHERE emp.department_id = dep.department_id AND dep.location_id = locat.location
 
 
 
+# 八、子查询
 
 
-# 子查询
 
 
 
