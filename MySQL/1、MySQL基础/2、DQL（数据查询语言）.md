@@ -2220,6 +2220,154 @@ SELECT TIME_TO_SEC(NOW()), SEC_TO_TIME(78288);
 
 ![image-20240304163620923](.\images\image-20240304163620923.png)
 
+
+
+### 4.6、计算日期和时间的函数
+
+**`第一组`**:
+
+| 函数                                                         | 用法                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| DATE_ADD(datetime,INTERVAL expr type),<br>ADDDATE(date,INTERVAL expr type) | 返回与给定日期时间相差expr时间段的日期时间（这里使用的是加法） |
+| DATE_SUB(date,INTERVAL expr type),<br>SUBDATE(date,INTERVAL expr type) | 返回与date相差expr时间间隔的日期（这里使用的是减法）         |
+
+上述函数中type的取值：
+
+![image-20240304225439918](.\images\image-20240304225439918.png)
+
+举例：
+
+```sql
+SELECT DATE_ADD(NOW(), INTERVAL 1 DAY) AS col1,DATE_ADD('2021-10-21 23:32:12',INTERVAL
+1 SECOND) AS col2,
+ADDDATE('2021-10-21 23:32:12',INTERVAL 1 SECOND) AS col3,
+DATE_ADD('2021-10-21 23:32:12',INTERVAL '1_1' MINUTE_SECOND) AS col4,
+DATE_ADD(NOW(), INTERVAL -1 YEAR) AS col5, #可以是负数
+DATE_ADD(NOW(), INTERVAL '1_1' YEAR_MONTH) AS col6 #需要单引号
+FROM DUAL;
+```
+
+执行结果：
+
+![image-20240304225124018](.\images\image-20240304225124018.png)
+
+```sql
+SELECT DATE_SUB('2021-01-21',INTERVAL 31 DAY) AS col1,
+SUBDATE('2021-01-21',INTERVAL 31 DAY) AS col2,
+DATE_SUB('2021-01-21 02:01:01',INTERVAL '1 1' DAY_HOUR) AS col3
+FROM DUAL;
+```
+
+执行结果：
+
+![image-20240304225622019](.\images\image-20240304225622019.png)
+
+
+
+**`第二组：`**
+
+| 函数                         | 用法                                                         |
+| ---------------------------- | ------------------------------------------------------------ |
+| ADDTIME(time1,time2)         | 返回time1加上time2的时间。当time2为一个数字时，代表的是秒，可以为负数 |
+| SUBTIME(time1,time2)         | 返回time1减去time2后的时间。当time2为一个数字时，代表的是秒，可以为负数 |
+| DATEDIFF(date1,date2)        | 返回date1-date2的日期间隔天数                                |
+| TIMEDIFF(time1,time2)        | 返回time1-time2的时间间隔                                    |
+| FROM_DAYS(N)                 | 返回从0000年1月1日起，N天以后的日期                          |
+| TO_DAYS(date)                | 返回日期date距离0000年1月1日的天数                           |
+| LAST_DAY(date)               | 返回date所在月份的最后一天的日期                             |
+| MAKEDATE(year,n)             | 针对给定年份与所在年份中的天数返回一个日期                   |
+| MAKETIME(hour,minute,second) | 将给定的小时、分钟和秒组合成时间并返回                       |
+| PERIOD_ADD(time,n)           | 返回time加上n后的时间                                        |
+
+```sql
+SELECT
+ADDTIME(NOW(),20),SUBTIME(NOW(),30),SUBTIME(NOW(),'1:1:3'),DATEDIFF(NOW(),'2021-10-
+01'),
+TIMEDIFF(NOW(),'2021-10-25 22:10:10'),FROM_DAYS(366),TO_DAYS('0000-12-25'),
+LAST_DAY(NOW()),MAKEDATE(YEAR(NOW()),12),MAKETIME(10,21,23),PERIOD_ADD(20200101010101,
+10)
+FROM DUAL;
+```
+
+查询结果：
+
+![image-20240304235212922](.\images\image-20240304235212922.png)
+
+
+
+### 4.7、日期的格式化与解析
+
+* **`格式化`**：日期 --> 字符串
+* **`解析`**：字符串 --> 日期
+
+之前，我们接触过的都是隐式的格式化或解析，比如：
+
+```sql
+SELECT *
+FROM employees
+WHERE hire_date = '1993-01-13';
+```
+
+查询结果：
+
+![image-20240304235747613](.\images\image-20240304235747613.png)
+
+这里实际上就是将字符串转换成了日期类型，进行了隐式的解析。
+
+但是，这种隐式的解析往往非常的死板，字符串的格式与日期的格式需要保持一致才能进行隐式地格式化或解析。当我们想将月日放在前面，而年份放在后面的时候，这个时候去格式化或者解析就无法进行隐式地转换。所以，我们需要进行显式地对字符串或者日期进行格式化或者解析。
+
+| 函数                              | 用法                                       |
+| --------------------------------- | ------------------------------------------ |
+| `DATE_FROMAT(date,fmt)`           | 按照字符串fmt格式化日期date值              |
+| `TIME_FORMAT(time,fmt)`           | 按照字符串fmt格式化时间time值              |
+| GET_FORMAT(date_type,format_type) | 返回日期字符串的显示格式                   |
+| `STR_TO_DATE(str,fmt)`            | 按照字符串fmt对str进行解析，解析为一个日期 |
+
+上述函数中fmt参数常用的格式符：
+
+![image-20240305005838097](.\images\image-20240305005838097.png)
+
+![image-20240305005857304](.\images\image-20240305005857304.png)
+
+举例：
+
+```sql
+SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d %H:%i:%s'), DATE_FORMAT(NOW(),'%Y-%m-%d %H:%i:%s'),
+TIME_FORMAT(CURTIME(),'%Y-%m-%d %H:%i:%s'),
+TIME_FORMAT(NOW(),'%Y-%m-%d %H:%i:%s'),
+STR_TO_DATE('2014-04-22 15:47:06','%Y-%m-%d %H:%i:%s');
+```
+
+查询结果：
+
+![](.\images\image-20240305005515622.png)
+
+由查询结果可知，当我们进行格式化时：
+
+* 只想获取日期信息，使用DATE_FORMAT()函数并传入CURDATE()函数获取当前的日期。
+* 只是获取时间信息，使用TIME_FORMAT()函数
+* 既想获取日期，也想获取时间信息，使用DATE_FORMAT()函数并传入NOW()函数获取当前的日期与时间。
+
+
+
+当我们需要一种格式，去进行格式化或者解析时，这个时候我们可以使用现成的，**`GET_FORMAT()`**方法就是给我们返回日期进行格式化或解析格式的方法，它有如下类型的参数：
+
+![image-20240305003950576](.\images\image-20240305003950576.png)
+
+这样，我们就可以使用获取指定格式的日期类型字符串。
+
+例如：
+
+```sql
+SELECT DATE_FORMAT(NOW(),GET_FORMAT(DATE,'USA')) FROM DUAL;
+```
+
+我们就可以将当前时间转换成现有的格式
+
+执行结果：
+
+<img src=".\images\image-20240305005728891.png" align="left">
+
 # 六、多行函数（聚合函数）
 
 
