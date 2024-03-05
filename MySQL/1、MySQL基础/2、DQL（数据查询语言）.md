@@ -9,6 +9,7 @@ WHERE <筛选条件>
 GROUP BY <字段名>
 HAVING <筛选条件>
 UNION
+...
 ORDER BY <字段名>
 LIMIT <限制行数>;
 ```
@@ -2367,6 +2368,137 @@ SELECT DATE_FORMAT(NOW(),GET_FORMAT(DATE,'USA')) FROM DUAL;
 执行结果：
 
 <img src=".\images\image-20240305005728891.png" align="left">
+
+
+
+## `5、流程控制函数（重要）`
+
+流程处理函数可以根据不同的条件，执行不同的处理流程，可以在SQL语句中实现不同的条件选择。MySQL中的流程处理函数主要包括`IF()`、`IFNULL()`和`CASE()`函数。
+
+| 函数                                                         | 用法                                            |
+| ------------------------------------------------------------ | ----------------------------------------------- |
+| **`IF(value,value1,value2)`**                                | 如果value的值为TRUE，返回value1，否则返回value2 |
+| IFNULL(value1,value2)                                        | 如果value1不为NULL，返回value1，否则返回value2  |
+| **`CASE WHEN 条件1 THEN 结果1 WHEN 条件2 THEN 结果2 ... [ELSE 结果n] END`** | 相当于Java的if...else if...else...              |
+| **`CASE expr WHEN 常量值1 THEN 值1 WHEN 常量值2 THEN 值2...[ELSE 值n] END`** | 相当于Java的switch...case...                    |
+
+案例1：将employees表中的commission_pct字段进行筛选，如果是NULL就返回0，如果不是NULL就返回自身：
+
+```sql
+SELECT commission_pct,IF(commission_pct IS NOT NULL, commission_pct, 0) as "details"
+FROM employees;
+
+#或
+
+SELECT commission_pct, IFNULL(commission_pct, 0) as "details"
+FROM employees;
+```
+
+查询结果：
+
+<img src=".\images\image-20240305102720295.png" align="left">
+
+案例2：查询部门号为10,20,30的员工信息，若部门号为10，则打印其工资的1.1倍；20号部门，则打印其工资的1.2倍；30号部门打印其工资的1.3倍。
+
+```sql
+SELECT employee_id, last_name, department_id, salary, 
+CASE WHEN department_id = 10 THEN salary * 1.1
+	 WHEN department_id = 20 THEN salary * 1.2
+	 ELSE salary * 1.3 END "details"
+FROM employees
+WHERE department_id IN (10, 20, 30);
+
+#或者也可以使用switch...case语句
+
+SELECT employee_id, last_name, department_id, salary,
+CASE department_id WHEN 10 THEN salary * 1.1
+				   WHEN 20 THEN salary * 1.2
+				   ELSE salary * 1.3 END "details"
+FROM employees
+WHERE department_id IN (10, 20, 30);
+```
+
+查询结果：
+
+![image-20240305104622179](.\images\image-20240305104622179.png)
+
+
+
+## 6、加密与解密函数
+
+加密与解密函数主要用于对数据库中的数据进行加密和解密处理，以防止数据被他人窃取。这些函数在保证数据库安全时非常有用。
+
+| 函数                        | 用法                                                         |
+| --------------------------- | ------------------------------------------------------------ |
+| PASSWORD(str)               | 返回字符串str的加密版本，41位长的字符串。加密结果`不可逆`，常用于用户的密码加密 |
+| MD5(str)                    | 返回字符串str的md5加密后的值，也是一种加密方式。若参数为NULL，则返回NULL。 |
+| SHA(str)                    | 从原明文密码str计算并返回加密后的密码字符串，当参数为NULL时，返回NULL。`SHA加密算法比MD5更加安全。` |
+| ENCODE(value,password_seed) | 返回使用password_seed作为加密密码加密value                   |
+| DECODE(value,password_seed) | 返回使用password_seed作为加密密码解密value                   |
+
+可以看到，ENCODE(value,password_seed)函数与DECODE(value,password_seed)函数互为反函数。
+
+**注意：**
+
+* PASSWORD()、ENCODE()以及DECODE()函数在mysql8.0中已被弃用。
+
+* MD5()和SHA()也是`不可逆的`，即转换成密文后不可再转回明文。
+
+  那当我们想要去获取这个明文信息时该怎么办呢？MD5()和SHA()均是用在加密上，当我们往前端输入一段密码后，MySQL也会使用同样的加密算法进行加密，然后跟原密文进行比较equals，若为TRUE，则表示输入的密码正确，而不会将密文转回明文。
+
+案例：
+
+```sql
+SELECT MD5('hellojava'), SHA('hellojava');
+```
+
+执行结果：
+
+![image-20240305111120032](.\images\image-20240305111120032.png)
+
+
+
+## 7、MySQL信息函数和其他函数
+
+### MySQL信息函数
+
+MySQL中内置了一些可以查询MySQL信息的函数，这些函数主要用于帮助数据库开发或运维人员更好地对数据库进行维护工作。
+
+| 函数                                                  | 用法                                                     |
+| ----------------------------------------------------- | -------------------------------------------------------- |
+| VERSION()                                             | 返回当前MySQL的版本号                                    |
+| CONNECTION_ID()                                       | 返回当前MySQL服务器的连接数量                            |
+| DATABASE(),SCHEMA()                                   | 返回MySQL命令行当前所在的数据库                          |
+| USER()，CURRENT_USER()，SYSTEM_USER()，SESSION_USER() | 返回当前连接MySQL的用户名，返回结果格式为"主机名@用户名" |
+| CHARSET(value)                                        | 返回字符串value自变量的字符集                            |
+| COLLATION(value)                                      | 返回字符串value的比较规则                                |
+
+```java
+SELECT VERSION(), CONNECTION_ID(), DATABASE(), SCHEMA(), USER(), CURRENT_USER(), CHARSET('hellojava'), COLLATION('hellojava');
+```
+
+查询结果：
+
+![image-20240305113257811](.\images\image-20240305113257811.png)
+
+
+
+### 其他函数
+
+MySQL中有些函数无法对其进行具体的分类，但是这些函数在MySQL的开发和运维过程中也是不容忽视的。
+
+| 函数                           | 用法                                                         |
+| ------------------------------ | ------------------------------------------------------------ |
+| FORMAT(value, n)               | 返回对数字value进行格式化后的结果数据。n表示四舍五入后保留到小数点后n位。 |
+| CONV(value,from,to)            | 将value的值进行不同进制之间的转换                            |
+| INET_ATON(ipvalue)             | 将以点分割的IP地址转化为一个数字                             |
+| INET_NTOA(value)               | 将数字形式IDIp地址转化为以点分隔的IP地址                     |
+| BENCHMARK(n,expr)              | 将表达式expr重复执行n次。用于测试MySQL处理expr表达式所耗费的时间 |
+| CONVERT(value USING char_code) | 将value所使用的字符编码修改为char_code                       |
+
+![image-20240305115828079](.\images\image-20240305115828079.png)
+
+![image-20240305115853155](.\images\image-20240305115853155.png)
 
 # 六、多行函数（聚合函数）
 
