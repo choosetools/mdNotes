@@ -18,15 +18,120 @@ LIMIT <限制行数>;
 
 ![SQL查询语句的执行顺序解析](.\images\format,png)
 
+1. FROM
+2. ON
+3. JOIN
+4. WHERE
+5. GROUP BY
+6. 聚合函数（avg,sum...）
+7. HAVING
+8. SELECT
+9. DISTINCT
+10. ORDER BY
+11. LIMIT
+
+结合上图，整理出如下伪SQL查询语句：
+
+```sql
+(9) SELECT (10) DISTINCT column, (6) AGG_FUNC(column or expression),...
+(1) FROM left_table
+	(3) JOIN right_table
+	(2) ON column1 = column2
+(4) WHERE constraint_expression
+(5) GROUP BY column
+(7) WITH CUBE|ROLLUP
+(8) HAVING constraint_expression
+(11) ORDER BY column ASC|DESC
+(12) LIMIT (PageNum-1)*PageSize, PageSize;
+```
+
+从这个顺序中我们可以发现，所有的查询语句都是从FROM开始执行的，在实际执行过程中，每个步骤都会为下一个步骤生成一个**虚拟表**，这个虚拟表将作为下一个执行步骤的输入。接下来，我们详细的介绍下每个步骤的具体执行过程。
+
 ## 1、FROM 执行笛卡尔积
 
-FROM才是SQL语句执行的第一步，并非SELECT。对FROM子句中的前两个表执行笛卡尔积（交叉连接），生成虚拟表VT1，获取不同数据源的数据集。
+FROM才是SQL语句执行的第一步，并非SELECT。对FROM子句中的前两个表执行笛卡尔积（交叉连接），生成虚拟表**VT1**，获取不同数据源的数据集。
+
+这一步实际上已经获取到了所有的表，包括JOIN子句中的表，然后对这些表执行笛卡尔积操作，即：所有字段都进行了匹配。
+
+**FROM子句执行顺序为从后往前、从右往左**，FROM子句中写在最后的表（基础表——将被最先处理，即最后的表为驱动表，当FROM子句中包含多个表的情况下，我们需要选择数据最少的表作为基础表。
+
+## 2、ON 启用ON过滤器
+
+对虚拟表**VT1**启用ON筛选器，ON中的逻辑表达式将应用到虚拟表**VT1**中的各个行，筛选出满足ON逻辑表达式的行，生成虚拟表**VT2**.
+
+## 3、JOIN 添加外部行
+
+保留表如下：
+
+* LEFT JOIN把左表记为保留表
+* RIGHT JOIN把右表记为保留表
+* FULL JOIN把左右表都作为保留表
+
+在虚拟表**VT2**表的基础上添加保留表中被过滤条件过滤掉的数据，非保留表中的数据被赋予NULL值，最后生成虚拟表**VT3**。
+
+如果有两个以上的表连接，则对上一个连接生成的结果集和下一个表重复执行步骤1~3，直到处理完所有的表为止。
+
+## 4、WHERE 应用WHERE过滤器
+
+对虚拟表**VT3**应用WHERE筛选器。根据指定的条件对数据进行筛选，并把满足的数据插入虚拟表**VT4**。
+
+* 由于此时还未执行聚合函数，所以不能在WHERE过滤器中使用聚合函数进行筛选操作。
+* 由于此时还未执行SELECT操作，因此不能在WHERE过滤器中使用列的别名。
+
+## 5、GROUP BY 分组
+
+按GROUP BY子句中的列/列表将虚拟表**VT4**中的行唯一的值组合成为一组，生成虚拟表**VT5**。如果应用了GROUP BY，那么后面只能得到GROUP BY的列（比如GROUP BY department_id，那么也只能查询得到department_id数据）或者聚合函数（比如count、sum、avg等），原因在于最后的结果集中只为每个组包含一行。
+
+同时，从这一步开始，后面的语句中都可以使用SELECT中列的别名。
+
+## 6、AGG_FUNC 计算聚合函数
+
+计算max等聚合函数。SQL Aggregate函数计算从列中取得的值，返回一个单一的值。常用的聚合函数包含以下几种：
+
+* AVG：平均值
+* COUNT：行数
+* FIRST：返回第一个记录的值
+* LAST：返回最后一个记录的值
+* MAX：返回最大值
+* MIN：返回最小值
+* SUM：返回总和
+
+## 7、WITH 应用ROLLUP或CUBE
+
+对虚拟表**VT5**应用ROLLUP或CUBE选项，生成虚拟表**VT6**.
+
+CUBE和ROLLUP区别如下：
+
+* CUBE生成的结果数据集显示了所选列中值的所有组合的聚合。
+* ROLLUP生成的结果数据集显示了所选列中值的某一层次结果的聚合。
+
+## 8、HAVING 应用HAVING过滤器
+
+对虚拟表**VT6**应用HAVING筛选器。根据指定的条件对数据进行筛选，并把满足的数据插入虚拟表**VT7**。
+
+HAVING语句在SQL语句中的主要作用是与WHERE语句作用是相同的，但是HAVING用于过滤聚合值，在SQL中添加HAVING子句原因就在于，WHERE无法与聚合函数一起使用，HAVING子句主要和GROUP BY子句配合使用。
+
+注意：如果既能使用WHERE，也能使用HAVING，推荐使用WHERE，HAVING推荐只与聚合函数一起使用。
+
+## 9、SELECT 选出指定列
+
+将虚拟表**VT7**中的在SELECT中出现的列筛选出来，并对字段进行处理，计算SELECT子句中的表达式，产生虚拟表**VT8**.
+
+## 10、DISTINCT 行去重
+
+将重复的行从虚拟表**VT8**中移除，产生虚拟表**VT9**。DISTINCT用来删除重复行，只保留唯一的。
+
+## 11、ORDER BY 排列
+
+将虚拟表**VT9**中的行按ORDER BY子句中的列/列表排序，生成游标**VC10**，注意不是虚拟表。因此，使用ORDER BY子句查询不能应用于表达式。同时，ORDER BY子句的执行顺序为从左到右排序，是非常消耗资源的。
+
+## 12、LIMIT/OFFSET 指定返回行
+
+从**VC10**的开始处选择指定数量行，生成虚拟表**VT11**，并返回调用者。
 
 
 
-
-
-
+## 执行实例
 
 我们来看一个案例来具体查看一下执行顺序：
 
@@ -2271,7 +2376,7 @@ FROM DUAL;
 | ---------------------------- | ------------------------------------------------------------ |
 | ADDTIME(time1,time2)         | 返回time1加上time2的时间。当time2为一个数字时，代表的是秒，可以为负数 |
 | SUBTIME(time1,time2)         | 返回time1减去time2后的时间。当time2为一个数字时，代表的是秒，可以为负数 |
-| DATEDIFF(date1,date2)        | 返回date1-date2的日期间隔天数                                |
+| **`DATEDIFF(date1,date2)`**  | 返回date1-date2的日期间隔天数                                |
 | TIMEDIFF(time1,time2)        | 返回time1-time2的时间间隔                                    |
 | FROM_DAYS(N)                 | 返回从0000年1月1日起，N天以后的日期                          |
 | TO_DAYS(date)                | 返回日期date距离0000年1月1日的天数                           |
@@ -2502,11 +2607,127 @@ MySQL中有些函数无法对其进行具体的分类，但是这些函数在MyS
 
 # 六、多行函数（聚合函数）
 
+聚合函数作用于一组数据，并对一组数据返回一个值。
+
+![image-20240305154140139](.\images\image-20240305154140139.png)
+
+**聚合函数类型**
+
+* **`AVG()`**
+* **`SUM()`**
+* **`MAX()`**
+* **`MIN()`**
+* **`COUNT()`**
+
+**聚合函数语法**
+
+![image-20240305154525369](.\images\image-20240305154525369.png)
+
+* 聚合函数不能嵌套调用。比如不能出现类似“AVG(SUM(字段名称))”形式的调用
 
 
 
+## AVG和SUM函数
+
+只适用于**`数值类型`**的求平均值和求总和。
+
+**会自动过滤掉空值NULL**，将空值为NULL的数据不算在其中，比如：公司中有100个人，只有20个人有奖金，其他人的奖金为NULL，那么计算奖金的平均值只计算那20个人的，即：
+
+SUM(salary) / 20，而不是去除以100.
+
+```sql
+SELECT AVG(salary), SUM(salary)
+FROM employees;
+```
+
+<img src=".\images\image-20240305155158358.png" align="left">
 
 
+
+## MAX和MIN函数
+
+可以对**`任意数据类型`**(包括数值类型、字符串类型以及日期类型)使用MAX和MIN函数。
+
+**会自动过滤掉空值NULL**。
+
+```sql
+SELECT MIN(hire_date),MAX(hire_date),MAX(salary),MIN(salary),MAX(last_name),MIN(last_name)
+FROM employees;
+```
+
+![image-20240305155724400](.\images\image-20240305155724400.png)
+
+
+
+## COUNT函数
+
+**作用**：计算指定字段在查询结果中出现的个数。
+
+**COUNT函数的使用一般有两种方式：**
+
+1. **`COUNT(1)`**或**`COUNT(*)`**：用于返回结果集中的记录总数。
+2. **`COUNT(expr)`**：返回<font style="color:red;">**expr字段不为空**</font>的记录总数，会将为空的字段筛选掉。
+
+案例：
+
+```sql
+SELECT COUNT(1), COUNT(*), COUNT(commission_pct)
+FROM employees;
+```
+
+执行结果：
+
+<img src=".\images\image-20240305160417531.png" align="left">
+
+这两种方式查询得到的结果不一样的原因在于，COUNT(commission_pct)不会统计此列为NULL值的行数，而COUNT(*)或COUNT(1)仅仅查询结果集的行数。
+
+
+
+* **问题1：用COUNT(*)，COUNT(1)，COUNT(列名)谁比较好？**
+
+  在效率上来说，对于MyISAM引擎的表是没有区别的，这种引擎内部有一个计数器在维护行数。Innodb引擎的表用count(*)，count(1)直接读行数，时间复杂度是O(n)，innodb真的要去数一遍，但是要优于COUNT(列名)。
+
+  但是在业务的角度上考虑，如果是去获取结果集所有的行数，那么就使用COUNT(*)或COUNT(1)；如果要去筛选掉NULL空字段的信息，则使用COUNT(列名)。
+
+* **问题2：能不能使用COUNT(列名)替换COUNT(*)？**
+
+  不要使用COUNT(列名)来替代count(\*)，count(*)是SQL92定义的标准统计行数的语法，跟数据库无关，跟NULL与非NULL无关。
+
+  说明：count(*)会统计值为NULL的行，而count(列名)不会统计此列为NULL值的行。
+
+**总结：**
+
+> 如果要统计所有记录，使用`COUNT(1)`或者`COUNT(*)`；如果要统计表中某一个字段所有非空的记录，使用`COUNT(字段名)`。
+
+## 案例（易错点）
+
+需求：查询公司中平均奖金率
+
+此时，若我们使用：
+
+```sql
+SELECT AVG(commission_pct)
+FROM employees;
+```
+
+以上的写法是正确的吗？
+
+这种写法是错误的。
+
+原因在于公司中没有奖金率的员工，commission_pct字段的值为NULL。
+
+而AVG()方法会自动过滤掉空值NULL，此时我们如果使用AVG(commission_pct)方式去计算公司的平均奖金率，则是只在有奖金率的员工之间进行计算的，比如公司中总人数为100人，有奖金率的员工只有30人，则是将总和 / 30，而不是总和 / 100。但是，要求实际上是去计算公司所有人的平均奖金率，所以应该要将没有奖金率的员工也计算在内。此时，就不能使用AVG()进行计算，应该改成：
+
+```sql
+SELECT SUM(commission_pct) / COUNT(*)
+FROM employees;
+
+#或者：
+SELECT AVG(IFNULL(commission_pct,0))
+FROM employees;
+```
+
+这样得出的结果，才是去计算公司所有人的平均奖金率。
 
 
 
@@ -2514,17 +2735,234 @@ MySQL中有些函数无法对其进行具体的分类，但是这些函数在MyS
 
 # 七、GROUP BY与HAVING的使用
 
+## GROUP BY
+
+### 1、基本使用
+
+GROUP BY用于给查询的结果进行分组，将原本的结果集分成一组一组的形式。
+
+![image-20240305183349048](.\images\image-20240305183349048.png)
+
+**`可以使用GROUP BY子句将表中的数据分为若干组`**
+
+**格式：**
+
+```sql
+SELECT column, group_fuction(cloumn)
+FROM table
+[WHERE condition]
+[GROUP BY group_by_expression]
+[ORDER BY column];
+```
+
+案例：查询各个部门的平均工资，最高工资
+
+```sql
+SELECT department_id, AVG(salary), SUM(salary)
+FROM employees
+GROUP BY department_id;
+```
+
+查询结果：
+
+![image-20240305183804737](.\images\image-20240305183804737.png)
+
+> **注意：**
+> **`在SELECT列表中所有未包含在组函数中的列都应该包含在GROUP BY子句中。`**
+
+这是什么意思呢？
+
+意思是若要进行分组操作，则在SELECT中查询的字段必须放在GROUP BY子句中进行分组。
+
+为什么要这样？
+
+因为若不将查询的字段放入GROUP BY分组操作中的话，那么SELECT查询的字段表示的含义实际上是未进行分组的字段，而分组就不知道该如何进行计算。比如：
+
+```sql
+select salary, department_id
+from employees
+group by department_id;
+```
+
+上述的SQL语句是根据department_id进行分组的，每一组中的department_id都是相等的，所以可以直接查询出来。但是对于salary该如何查询呢？每一组中的每一个用户的salary都是不一样的，而且没有对salary进行分组操作，这个时候就无法保证结果集中的每一条数据上的salary保持一致，此时就会报错。
+
+所以，对于SELECT子句中的非组函数列，都应该包含在GROUP BY子句中。
 
 
 
+**但是有这种情况：**
+
+比如有一个需求：查询每个部门的部门名和最低工资。
+
+此时，使用department_id进行分组比使用department_name分组会更好，因为有可能会有两个不同的部门使用相同的部门名，当有两个不同的部门使用了相同的部门名时，如果对部门名进行分组，就会将这两个部门合并在一起，看作是同一组，这是不符合业务逻辑的。此时，就不能使用department_name进行分组，而应该对department_id进行分组，即：
+
+```sql
+SELECT department_name, MIN(salary)
+FROM departments d LEFT JOIN employees e
+ON e.department_id = d.department_id
+GROUP BY department_id;
+```
+
+那这里为什么又可以使用SELECT子句中没有的字段进行分组呢？
+
+原因就在于，在departments表中，department_id与department_name字段是一一对应关系的，我们使用department_id进行分组，不会将department_name进行合并，依旧是一一对应的。
+
+而在前面的例子中，department_id与salary之间并不是一一对应关系，当SELECT子句中包含department_id与salary，但是GROUP BY子句中不含有salary字段时，我们就不知道salary该如何进行合并从而报错。
+
+但是这里就不需要考虑合并的问题。
 
 
+
+### 2、使用多个列进行分组
+
+使用多个列进行分组时，就会将每一组更加详细地进行划分。
+
+比如，使用department_id和job_id进行分组，那么就会在department_id分一组的情况下，再对其中的job_id一致的数据分为一组，使得数据分组更加地详细。
+
+![image-20240305184738054](.\images\image-20240305184738054.png)
+
+案例：查询各个部门中各个工种员工的平均工资
+
+```sql
+SELECT department_id, job_id, AVG(salary)
+FROM employees
+GROUP BY department_id, job_id;
+```
+
+查询结果：
+
+<img src=".\images\image-20240305184914603.png" align="left">
+
+这里有一个疑问：如果我们分组时将department_id和job_id换一下顺序，先根据job_id进行分组，再按照department_id进行分组，这样结果有没有什么不同？
+
+实际上，结果还是一样的。
+
+因为不论是先按照department_id进行分组，还是先按照job_id进行分组，最后都是要求将同一个department_id和job_id的数据放在一个组里面，所以顺序并不会影响分组后的数据的。
+
+
+
+### 3、WITH ROLLUP的使用
+
+使用**`WITH ROLLUP`**关键字之后，在所有查询出的分组记录之后增加一条记录，该记录记录者对所有记录整体进行的操作所得到的结果。
+
+案例：
+
+```sql
+SELECT department_id, AVG(salary)
+FROM employees
+GROUP BY department_id WITH ROLLUP;
+```
+
+查询结果：
+
+<img src=".\images\image-20240305190439204.png" align="left">
+
+我们可以看到，在最后一行，新增了一条数据，这条数据实际上是对所有的salary工资数据进行了求平均值AVG的操作，即WITH ROLLUP会在记录的最后添加一条记录，用于记录着对所有记录进行的操作所得到的数据。
+
+> **注意：**
+>
+> 当使用`ROLLUP`时，不能同时使用`ORDER BY`子句进行结果排序，即ROLLUP和ORDER BY是相互排斥的。
+
+
+
+## HAVING
+
+### 基本使用
+
+HAVING的作用是去**过滤分组**。
+
+**案例**：查询各个部门中最高工资比10000高的部门信息
+
+当我们需要对分组后的数据进行过滤，比如上述案例中要求过滤出MAX(salary) > 10000的数据时，此时就不能再使用WHERE了，因为WHERE是对整个表中的整体进行过滤。此时就需要使用到`HAVING`。
+
+![image-20240305191510974](.\images\image-20240305191510974.png)
+
+
+
+**`过滤分组：HAVING子句`**
+
+1. 行已经被分组。
+2. 使用了聚合函数。
+3. 满足HAVING子句中条件的分组将被显示。
+4. **HAVING不能单独使用，必须跟GROUP BY一起使用。**
+
+**格式：**
+
+![image-20240305191701124](.\images\image-20240305191701124.png)
+
+使用HAVING实现上述的案例：
+
+```sql
+SELECT department_id, MAX(salary)
+FROM employees
+GROUP BY department_id
+HAVING MAX(salary) > 10000;
+```
+
+执行结果：
+
+<img src=".\images\image-20240305192203134.png" align="left">
+
+这样就对分组后的数据进行了筛选。
+
+
+
+**要求：**
+
+> 1. HAVING必须声明在GROUP BY的后面。
+> 2. HAVING必须要跟GROUP一起使用。
+> 3. **`如果在过滤条件中使用了聚合函数，比如SUM()，则必须使用HAVING来替换WHERE。否则，报错。`**
+
+比如：
+
+```sql
+SELECT department_id, AVG(salary)
+FROM employees 
+WHERE AVG(salary) > 8000
+GROUP BY department_id;
+```
+
+这种写法是错误的，为什么错？
+
+原因就在于SQL的执行顺序。AVG()聚合函数的执行顺序在WHERE子句之后，当执行到WHERE子句时，其中的AVG()函数还未执行，那也就无法去进行筛选操作了。
+
+所以，遇到要使用聚合函数作为筛选条件时，需要在HAVING子句中使用，因为一般要使用聚合函数进行筛选时，都要进行分组操作。
+
+
+
+### WHERE和HAVING的对比
+
+**`区别一：WHERE可以直接使用表中的字段作为筛选条件，但不能使用分组中的计算函数作为筛选条件；HAVING必须要和GROUP BY配合使用，可以把分组计算的函数和分组字段作为筛选条件。`**
+
+这决定了，在需要对数据进行分组统计的时候，HAVING可以完成WHERE不能完成的任务。这是因为，在查询语法结构中，WHERE在GROUP BY之前，所以无法对分组结果进行筛选。HAVING在GROUP BY之后，可以使用分组字段和分组中的计算函数，对分组的结果集进行筛选。这个功能是WHERE无法完成的。另外，WHERE排除的记录不再包括在分组中。
+
+**`区别二：如果需要连接从关联表中获取需要的数据，WHERE是先筛选后连接，而HAVING是先连接后筛选。`**这一点，就决定了在关联查询中，WHERE比HAVING更高效。因为WHERE可以先筛选，用一个筛选后的较小的数据集和关联表进行连接，这样占用的资源比较少，执行的效率也比较高。HAVING则需要先把结果集准备好，也就是用未被筛选的数据集进行关联，然后对这个大的数据集进行筛选，这样占用的资源就比较多，执行效率也较低。
+
+
+
+**`开发中选择：`**
+
+WHERE和HAVING也不是互相排斥的，我们可以在一个查询里面同时使用WHERE和HAVING。包含分组统计函数的条件用HAVING，普通条件用WHERE。这样，我们就既利用了WHERE条件的高效快速，又发挥了HAVING可以使用分组统计函数的查询条件的优点。当数据量特别大的时候，运行效率会有很大的差别。
+
+
+
+**结论：**
+
+> 当过滤条件中有聚合函数，要声明在HAVING中，不能声明在WHERE中。
+>
+> 当过滤条件是对分组后的数据进行过滤的，要声明在HAVING中。
+>
+> 其他过滤条件都建议声明在WHERE中。
+>
+> **`一般情况下，没有聚合函数都声明在WHERE里面，有聚合函数就声明在HAVING中。`**
 
 
 
 # 八、子查询
 
+子查询指一个查询语句嵌套在另一个查询语句内部的查询，这个特性从MySQL4.1开始引入。
 
+SQL中子查询的使用大大地增强了SELECT查询的能力，因为很多时候查询需要从结果集获取数据，或者需要从同一个表中先计算得出一个数据结果，然后与这个数据结果（可能是某个标量，也可能是某个集合）进行比较。
 
 
 
