@@ -1,3 +1,17 @@
+
+
+凡是对表中字段的操作，都是使用**`ALTER TABLE 表名`**开头的。
+
+比如：ALTER TBALE 表名 MODIFY是去修改表中的字段；ALTER TABLE 表名 ADD是去增加表的字段。
+
+对数据库以及表、表中字段的删除都是使用`DROP`删除的；
+
+对数据表的数据，使用的是`DELETE`删除。
+
+
+
+
+
 # 一、基础知识
 
 ## 1、一条数据存储的过程
@@ -486,7 +500,7 @@ DROP TABLE IF EXISTS myemp4;
 
 * TRUNCATE语句**`不能回滚`**，而使用DELETE语句删除数据，可以回滚。
 
-> TRUNCATE TABLE比DELETE速度快，且使用的系统和事务日志资源少，但TRUNCATE无事务且不触发TRIGGER，有可能造成事故，故不建议在开发代码中使用此语句。
+> TRUNCATE TABLE比DELETE速度快，且使用的系统和事务日志资源少，但TRUNCATE无事务且不触发TRIGGER，有可能造成事故，故**不建议在开发代码中使用此语句**。
 >
 > **说明：**TRUNCATE TABLE在功能上与不带WHERE子句的DELETE语句相同。
 
@@ -524,3 +538,169 @@ DESC employees_copy;
 ![image-20240309143152781](.\images\image-20240309143152781.png)
 
 即表的结构没有被删除，只是数据被清空了。
+
+
+
+
+
+# 四、COMMIT和ROLLBACK的理解
+
+* **`COMMIT`**：**提交数据**。一旦执行COMMIT，则数据就被永久的保存在数据库中，意味着数据不可以回滚。
+* **`ROLLBACK`**：**回滚数据**。一旦执行ROLLBACK，则可以实现数据的回滚，回滚到最近的一次COMMIT之后。
+
+比如说，我提交了一次数据，得到C1；之后又提交了一次数据，得到C2；之后进行了一系列操作，结果为C3。此时，我去回滚数据，那么最终只能回滚到C2，因为提交数据后，数据已经被永久保存了，不可再进行回滚。
+
+由此，我们可以根据这两个的理解，对比一下TRUNCATE和DELETE的区别。
+
+
+
+### DDL 和 DML 的说明
+
+* `DDL`（对数据库和表结构的操作）：一旦执行，就不可以回滚。原因在于**DDL在执行完操作后，一定会去提交数据**，并且这个commit操作不会受到autocommit数据的影响，所以无法进行回滚。
+
+* `DML`（对表中数据的操作）：默认情况下，一旦执行，也是不可以回滚的。但是，如果在执行DML之前，执行了**`SET autocommit = FALSE`**，则执行的DML操作（增删改）就可以实现回滚了。
+
+系统默认情况下是自动提交的，即当我们去对数据库中的数据实现增删改操作时，自动提交数据，此时，我们就不可以回滚；当我们去设置autocommit为false时，此时不会去自动提交数据，就可以对数据的修改进行回滚操作。
+
+但是，对于DDL来说，数据库以及表结构的修改一旦执行，就不可回滚，与autocommit无关。
+
+
+
+### 对比TRUNCATE TABLE和DELETE FROM
+
+> * **相同点：**
+>   * 都可以实现对表中数据的删除，同时保留表结构。
+>
+> * **不同点：**
+>
+>   * `TRUNCATE TABLE`：一旦执行此操作，表数据全部清除。同时，数据是不可以回滚的。
+>
+>   * `DELETE FROM`：一旦执行此操作，表数据可以全部清除（不带WHERE）。数据是可以实现回滚的（设置autocommit = false）。
+
+**演示**：分别对DELETE FROM 和TRUNCATE TABLE进行演示
+
+DELETE FROM
+
+首先先去COMMIT提交数据
+
+```sql
+COMMIT;
+```
+
+然后设置autocommit = false，防止其自动提交数据
+
+```sql
+SET autocommit = false;
+```
+
+之后，使用DELETE FROM删除数据表中的所有数据
+
+```sql
+DELETE FROM employees_copy;
+```
+
+此时，去查询employees_copy表中的数据，查询结果为：
+
+![image-20240309164114112](.\images\image-20240309164114112.png)
+
+可以发现，数据已经全部被删除了。然后此时使用ROLLBACK进行回滚
+
+```sql
+ROLLBACK;
+```
+
+此时，再去查询，得到的结果为：
+
+![image-20240309164223000](.\images\image-20240309164223000.png)
+
+即DELETE FROM操作被回滚了，回滚到删除之前。
+
+
+
+TRUNCATE
+
+假设使用TRUNCATE TABLE进行删除操作，也依旧按照上述步骤进行：
+
+```sql
+COMMIT;
+
+SET autocommit = false;
+
+TRUNCATE TABLE employees_copy;
+
+ROLLBACK;
+```
+
+此时，再去查询employees_copy表中的数据，查询的结果为：
+
+![image-20240309164524959](.\images\image-20240309164524959.png)
+
+即此时，并没有回滚到清空数据表之前，所以得出结论：TRUNCATE TABLE不支持回滚操作。
+
+为什么会出现这样的情况呢？
+
+> **`因为在执行完DDL操作后，一定会去提交数据，而且此操作不受到autocommit的影响，所以无法进行回滚。`**
+
+
+
+
+
+# 五、内容扩展
+
+## 扩展1：阿里巴巴《Java开发手册》之MySQL字段名
+
+* 【`强制`】表名、字段名必须使用小写字母或数字，禁止出现数字开头，禁止两个下划线中间只出现数字。数据库字段名的修改代价很大，因为无法进行预发布，所以字段名称需要慎重考虑。
+  * 正例：aliyun_admin, rdc_config, level3_name
+  * 反例：AliyunAdmin, rdcConfig, level_3_name
+* 【`强制`】禁用保留字，如desc、range、match、delayed等。
+* 【`强制`】：表必备三字段：id、gmt_create、gmt_modified。
+  * 说明：其中id必为主键，类型为BIGINT UNSIGNED、单表时自增、步长为1。gmt_create，gmt_modified的类型均为DATETIME类型，前者现在时表示主动式创建，后者过去分词表示被动式更新
+* 【`强制`】表的命名最好是遵循“业务名称_表的作用”
+  * 正例：alipay_task、force_project、trade_config
+* 【`推荐`】库名与应用名称尽量一致。
+* 【参考】合适的字符存储长度，不但节约数据库表空间、节约索引存储，更重要的是提升检索速度。
+
+
+
+
+
+## 扩展2：如何理解清空表、删除表等操作需谨慎？
+
+`表删除`操作将把表的定义和表中的数据一起删除，并且MySQL在执行删除操作时，不会有任何的确认信息提示，因此执行删除操作时应当慎重。在删除表前，最好对表中的数据进行`备份`，这样当操作失误时可以对数据进行恢复，以免造成无法挽回的后果。
+
+同样地，在使用`ALTER TABLE`进行表的基本修改操作时，在执行操作过程之前，也应该确保对数据进行完整的`备份`，因为数据库的改变是`无法撤销`的，如果添加了一个不需要的字段，可以将其删除；相同的，如果删除一个需要的列，该列下的所有数据都将会丢失。
+
+## 扩展3：MySQL8新特性——DDL的原子化
+
+在MySQL8.0版本中，InnoDB表的DDL支持事务完整性，即`DDL操作要么成功要么回滚`。DDL操作回滚日志写入到data dictionary数据字典白哦mysql.innodb_ddl_log（该表是隐藏的表，通过show tables无法看到）中，用于回滚操作，通过设置参数，可将DDL操作日志打印输出到MySQL错误日志中。
+
+事务是一个或多个操作构成的，要么都成功执行，要么都失败回滚，这就是事务的特性。
+
+在MySQL8之后，DDL操作本身也是一个事务，要么全部成功执行，要么失败回滚。
+
+案例：
+
+分别在MySQL5.7和MySQL8.0版本中创建数据表：
+
+```sql
+CREATE TABLE book1(
+	book_id INT,
+	book_name VARCHAR(255)
+);
+```
+
+此时分别去执行DDL操作的删除表操作：
+
+```sql
+DROP TABLE book1, book2;
+```
+
+由于此时数据库中只有book1表，没有book2表，所以执行该操作会报错。
+
+但是对于MySQL5.7来说，报错后查看数据库，发现数据库中book1表还是被删除了。
+
+对于MySQL8.0来说，报错后查看数据库，数据库中的book1表没有被删除。
+
+这就和事务有关了，MySQL5.7的删除表操作整体并不是一个事务，前面执行成功的操作会被直接提交。
+
+由上述两个结果可知，MySQL8之前，DDL操作不是事务，当执行失败时，前面成功执行的操作也会被COMMIT提交；在MySQL8之后，当DDL操作失败时，之前的执行成功的操作也会被回滚。
