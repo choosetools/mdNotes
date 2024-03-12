@@ -196,7 +196,7 @@ CREATE DATABASE IF NOT EXISTS mytest CHARACTER SET 'utf8';
   	字段3, 数据类型 [约束条件] [默认值],
   	...
   	[表约束条件]
-  );
+  )[CHARACTER SET 字符集];
   ```
 
 * **`必须指定：`**
@@ -242,7 +242,30 @@ SHOW CREATE TABLE myempl;
 
 原因在于，当我们在创建表时，`如果没有显示地去声明其字符集，默认使用的就是数据库的字符集`，数据库自身字符集是utf8mb3，那么表的字符集也就是utf8mb3.
 
+可以在创建表的时候给表设置字符集，这样的话就可以不会去使用数据库的字符集：
 
+```sql
+CREATE TABLE my_empl(
+	id INT,
+	`name` VARCHAR(15)
+)CHARACTER SET 'gbk';
+```
+
+
+
+甚至，在创建表时，还可以显示地指明字段的字符集：
+
+```sql
+CREATE TABLE templ(
+	id INT,
+	`name` VARCHAR(15) CHARACTER SET 'utf8'
+);
+```
+
+所以，我们对上述字符集进行**总结**：
+
+> 1. 可以对数据库、数据表以及表中的字段都设置指定的字符集。
+> 2. 当未给表字段显示地设置字符集时，默认使用的是表中的字符集；当未给表显示地设置字符集时，默认使用的是数据库的字符集；当未给数据库显示地设置字符集时，默认使用的是`utf8mb3`。
 
 ### 1.2、创建方式2（基于现有表）
 
@@ -447,7 +470,7 @@ DROP my_email;
 
 这就会去myempl表中删除my_email字段；如果不存在该字段，则报错。
 
-## 4、重命名表 -> RENAME
+## 4、重命名表 -> RENAME TABLE
 
 * **方式一`（推荐使用）`：**
 
@@ -462,7 +485,7 @@ DROP my_email;
   RENAME [TO] 新表名; --[TO]可以省略
   ```
 
-## 5、删除表 -> DROP
+## 5、删除表 -> DROP TABLE
 
 删除表不光将表结构删除，同时表中给定数据也删除掉，释放表空间。
 
