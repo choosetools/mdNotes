@@ -2376,7 +2376,7 @@ FROM DUAL;
 | ---------------------------- | ------------------------------------------------------------ |
 | ADDTIME(time1,time2)         | 返回time1加上time2的时间。当time2为一个数字时，代表的是秒，可以为负数 |
 | SUBTIME(time1,time2)         | 返回time1减去time2后的时间。当time2为一个数字时，代表的是秒，可以为负数 |
-| **`DATEDIFF(date1,date2)`**  | 返回date1-date2的日期间隔天数                                |
+| **`DATEDIFF(date1,date2)`**  | 返回date1-date2的日期间隔天数，这里是使用前面的-后面的       |
 | TIMEDIFF(time1,time2)        | 返回time1-time2的时间间隔                                    |
 | FROM_DAYS(N)                 | 返回从0000年1月1日起，N天以后的日期                          |
 | TO_DAYS(date)                | 返回日期date距离0000年1月1日的天数                           |
