@@ -1385,11 +1385,225 @@ public Result queryById(Long id) {
 
 
 
-## 4、缓存的三大问题及解决方案（:star:）
+## 4、缓存的四大问题及解决方案（:star:）
 
 在日常开发工作中，缓存技术被广泛利用以增强系统性能和减轻数据库的访问压力。但是，在使用缓存的过程中，我们可能会碰到几个典型问题，比如缓存穿透、缓存击穿和缓存雪崩。
 
-### 1）缓存穿透
+### 涉及到的面试题
+
+1. 缓存预热、雪崩、穿透、击穿分别是什么？你遇到过哪几个情况？
+2. 缓存预热你是怎么做的？
+3. 如何避免或减少缓存雪崩？
+4. 穿透和击穿有什么区别？他俩有什么区别？
+5. 穿透和击穿有什么解决方案？如何避免？
+6. 假如出现了缓存不一致问题，你有什么解决方案？
+7. ...****
+
+
+
+### 1）缓存预热
+
+#### 什么是缓存预热？
+
+缓存预热是指在系统启动之前或者系统达到高峰期之前，通过预先将常用数据加载到缓存中，以提高缓存命中率和系统性能的过程。
+
+#### 为什么需要缓存预热？
+
+缓存预热的好处有很多，如：
+
+1. 减少冷启动影响：当系统重启或新启动时，缓存是空的，这被称为冷启动。冷启动可能导致首次请求处理缓慢，因为数据需要从慢速存储中检索。
+2. 提高数据访问速度：通过预先加载常用数据到缓存中，可以确保数据快速可用，从而加快数据访问速度。
+3. 平滑流量峰值：在流量高峰期之前预热缓存可以帮助系统更好地处理高流量，避免在流浪激增时出现性能下降。
+4. 保证数据的时效性：定期预热可以保证缓存中的数据是最新的，特别是对于高度依赖于实时数据的系统。
+5. 减少对后端系统的压力，通过缓存预热，可以减少数据库或其他后端服务的直接查询，从而减轻它们的负载。
+
+
+
+#### 如何实现缓存预热？
+
+缓存预热的一般做法是在系统启动或系统空闲期间，将常用的数据加载到缓存中，主要做法有以下几种：
+
+1. **系统启动时加载**：在系统启动时，将常用的数据加载到缓存中，以便后续的访问可以直接从缓存中获取；
+2. **定时任务加载**：定时执行任务，将常用的数据加载到缓存中，以保持缓存中数据的实时性和准确性。
+3. **手动触发加载**：在系统达到高峰期之前，手动触发加载常用的数据到缓存中，以便提高缓存命中率和系统性能。
+4. **用时加载**：在用户请求到来时，根据用户的访问模式和业务需求，动态地将数据加载到缓存中。
+5. **缓存加载器**：一些缓存框架提供了缓存加载器的机制，可以在缓存中不存在数据时，自动调用加载器加载数据到缓存中。
+
+
+
+#### 具体实现方案
+
+##### 启动时预热
+
+**方式一：启动监听事件**
+
+可以使用ApplicationListener监听`ContextRefreshedEvent`或`ApplicationReadyEvent`等应用上下文初始化完成事件，在这些事件触发后执行数据加载到缓存的操作，具体实现如下：
+
+```java
+@Component
+public class CacheWarmer implements ApplicationListener<ContextRefreshedEvent> {
+    @Override
+    public void onApplicationEvent(ContextRefreshedEvent event) {
+        // 执行缓存预热业务...
+        cacheManager.put("key", dataList);
+    }
+}
+```
+
+或监听ApplicationReadyEvent事件，如下代码所示：
+
+```java
+@Component
+public class CacheWarmer implements ApplicationListener<ApplicationReadyEvent> {
+    @Override
+    public void onApplicationEvent(ApplicationReadyEvent event) {
+        // 执行缓存预热业务...
+        cacheManager.put("key", dataList);
+    }
+}
+```
+
+
+
+**方式二：使用@PostConstruct注解**
+
+可以使用@PostConstruct注解标注一个方法，该方法将在Bean的构造函数执行完毕后立即被调用。在这个方法中执行缓存预热的逻辑。
+
+```java
+@Component
+public class CachePreloader {
+ 
+    @PostConstruct
+    public void preloadCache() {
+        // 执行缓存预热逻辑
+        // ...
+    }
+}
+```
+
+
+
+**方式三：实现CommandLineRunner或ApplicationRunner接口**
+
+CommandLineRunner和ApplicationRunner都是SpringBoot应用程序启动后要执行的接口，它们都允许我们在应用启动后执行一些自定义的初始化逻辑，例如缓存预热。CommandLineRunner实现示例如下：
+
+```java
+@Component
+public class MyCommandLineRunner implements CommandLineRunner {
+    @Override
+    public void run(String... args) throws Exception {
+        // 执行缓存预热业务...
+        cacheManager.put("key", dataList);
+    }
+}
+```
+
+ApplicationRunner实现示例如下：
+
+```java
+@Component
+public class MyApplicationRunner implements ApplicationRunner {
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
+        // 执行缓存预热业务...
+        cacheManager.put("key", dataList);
+    }
+}
+```
+
+CommandLineRunner和ApplicationRunner区别如下：
+
+1. 方法签名不同：
+   1. CommandLineRunner 接口有一个 run(String... args) 方法，它接收命令行参数作为可变长度字符串数组。
+   2. ApplicationRunner 接口则提供了一个run(ApplicationArguments args) 方法，它接收一个 ApplicationArguments 对象作为参数，这个对象提供了对传入的所有命令行参数（包括选项和非选项参数）的访问。
+2. 参数解析方式不同：
+   1. CommandLineRunner 接口更简单直接，适合处理简单的命令行参数。
+   2. ApplicationRunner 接口提供了一种更强大的参数解析能力，可以通过 ApplicationArguments 获取详细的参数信息，比如获取选项参数及其值、非选项参数列表以及查询是否存在特定参数等。
+3. 使用场景不同：
+   1. 当只需要处理一组简单的命令行参数时，可以使用 CommandLineRunner。
+   2. 对于需要精细控制和解析命令行参数的复杂场景，推荐使用 ApplicationRunner。
+
+
+
+**方式四：实现InitializingBean接口**
+
+实现InitalizingBean接口，并重写afterPropertiesSet()方法，可以在Spring Bean初始化完成后进行缓存预热，具体实现代码如下：
+
+```java
+@Component
+public class CachePreloader implements InitializingBean {
+    @Autowired
+    private YourCacheManager cacheManager;
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        // 执行缓存预热业务...
+        cacheManager.put("key", dataList);
+    }
+}
+```
+
+
+
+##### 定时任务预热
+
+在启动过程中预热有一个问题，那就是一旦启动之后，如果需要预热新的数据，或者需要修改数据，就不支持了，那么，在应用的运行过程中，我们是可以通过定时任务来实现缓存的更新预热的。
+
+我们通常依赖这种方式来确保缓存中的数据是最新的，避免因为业务数据的变化而导致缓存数据过时。
+
+在Spring中，要想实现一个定时任务也比较简单，基于@Scheduled就可以实现：
+
+```java
+@Scheduled(cron = "0 0 1 * * ?") // 每天凌晨1点执行
+public void scheduledCachePreload() {
+    // 执行缓存预热逻辑
+    // ...
+}
+```
+
+
+
+
+
+##### 缓存器预热
+
+缓存框架提供了缓存加载器的机制，可以在缓存中不存在数据时，自动调用加载器加载数据到缓存中。这样可以简化缓存预热的逻辑。如Caffeine中有这样的功能：
+
+```java
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
+import org.springframework.stereotype.Service;
+ 
+import java.util.concurrent.TimeUnit;
+ 
+@Service
+public class MyCacheService {
+ 
+    private final LoadingCache<String, String> cache;
+ 
+    public MyCacheService() {
+        this.cache = Caffeine.newBuilder()
+                .refreshAfterWrite(1, TimeUnit.MINUTES)  // 配置自动刷新，1分钟刷新一次
+                .build(key -> loadDataFromSource(key));  // 使用加载器加载数据
+    }
+ 
+    public String getValue(String key) {
+        return cache.get(key);
+    }
+ 
+    private String loadDataFromSource(String key) {
+        // 从数据源加载数据的逻辑
+        // 这里只是一个示例，实际应用中可能是从数据库、外部服务等获取数据
+        System.out.println("Loading data for key: " + key);
+        return "Value for " + key;
+    }
+}
+```
+
+在上面的例子中，我们使用 Caffeine.newBuilder().refreshAfterWrite(1, TimeUnit.MINUTES) 配置了缓存的自动刷新机制，即每个缓存项在写入后的1分钟内，如果有读请求，Caffeine 会自动触发数据的刷新。
+
+loadDataFromSource 方法是用于加载数据的自定义方法。你可以在这个方法中实现从数据源（例如数据库、外部服务）加载数据的逻辑。
+
+### 2）缓存穿透
 
 #### 什么是缓存穿透？
 
@@ -1421,8 +1635,10 @@ public Result queryById(Long id) {
 
 **缺点**：
 
-* 1）**耗费内存并且会有失效的情况**。在Redis中缓存大量空值不仅会消耗宝贵的内存资源，而且如果攻击者持续使用随机key进行攻击，这种防御策略就会失效。在这种情况下，不仅数据库可能因过载而崩溃，Redis服务也可能由于内存耗尽而出现拒绝写操作的现象。这样，你的正常需要写入Redis的业务也会跟着收到影响。
+* 1）**耗费内存并且会有失效的情况**。`在Redis中缓存大量空值不仅会消耗宝贵的内存资源，而且如果攻击者持续使用随机key进行攻击，这种防御策略就会失效`。在这种情况下，不仅数据库可能因过载而崩溃，Redis服务也可能由于内存耗尽而出现拒绝写操作的现象。这样，你的正常需要写入Redis的业务也会跟着收到影响。
 * 2）**数据不一致问题**。虽然在缓存空值时我们设定了较短的过期时间，但仍存在一种情况：在缓存的空值尚未过期的这段时间内，数据库中的实际数据可能已经更新，而该键值在数据库中存在了数据。这导致在缓存中的空值仍然被返回，而没有返回真实的数据，从而造成缓存与数据库之间的数据不一致现象。
+
+> 这种方式只能解决每次查询key都相同的情况，如果黑客使用随机的ID进行查询，那么我们存储在Redis中的空对象是失效的，不仅没有办法解决缓存穿透问题，反而还占用了多余的内存。如果随机查询的请求非常多，还会占用大量的内存，得不偿失。
 
 
 
@@ -1490,9 +1706,13 @@ public Result queryById(Long id) {
 
 #### 方案二：布隆过滤器
 
+##### 方案说明
+
 为了缓解缓存穿透的问题，我们可以在Redis缓存层之前部署一道布隆过滤器防线。将数据库中的所有键导入布隆过滤器中，布隆过滤器提供一种高效的概率检测机制，用于判断一个元素是否可能在一个集合内。这样，在任何查询到达Redis之前，系统会首先检查该查询的键是否在布隆过滤器中。如果布隆过滤器中不存在查询的键，则直接返回，不去查询缓存以及数据库，以此避免对数据库的不必要访问和潜在查询压力。通过这样的布隆过滤器前置筛选，我们不仅保护了数据库免受不存在的键的查询压力，还确保了整体系统的性能稳定，即使在高并发查询的环境下也能有效地运作。
 
-**当布隆过滤器断言数据库中不存在某个键时，这个结论是绝对可靠的；但它认为某个键存在时，只表示存在的可能性很高**。由于其内部使用的是哈希思想，使用哈希算法去计算数据库键所对应的值，保存到布隆过滤器中，所以其可能存在着哈希冲突，由于哈希冲突，所以其**存在误判**的可能。
+> **`当布隆过滤器断言数据库中不存在某个键时，这个结论是绝对可靠的；但它认为某个键存在时，只表示存在的可能性很高`**。
+
+由于其内部使用的是哈希思想，使用哈希算法去计算数据库键所对应的值，保存到布隆过滤器中，所以其可能存在着哈希冲突，由于哈希冲突，所以其**存在误判**的可能。
 
 <img src=".\images\b5f4ed1168b24434b4dbec379886e7ed.png" alt="img" style="zoom:67%;" />
 
@@ -1512,10 +1732,178 @@ public Result queryById(Long id) {
 
 
 
+##### 使用Guava实现布隆过滤器
+
+在实际开发中，我们一般会使用Geogle提供的`Guava`来实现布隆过滤器。
+
+那么，现在我们就来实现使用Guava来实现一下布隆过滤器白名单的功能，从而解决缓存穿透问题。
+
+使用布隆过滤器来实现一个白名单的功能，也就是只有白名单里面有的数据查询时才让通过，没有直接返回。但是存在误判，由于误判的概率很小，这很小概率的误判查询打到mysql数据库是可以接受的。
+
+此时，该布隆过滤器也就能够解决缓存穿透问题，将数据库中的数据存入到布隆过滤器与Redis中，如果查询的是一个不存在的数据，此时布隆过滤器就不会让其通过，直接返回，也就不会有大量的不存在数据的请求能够达到数据库，就不会对数据库性能造成影响。
+
+那么，现在我们就使用Guava来实现布隆过滤器的方式修改查询用户的方法，在查询之前先去查询布隆过滤器。
+
+> 我们自己手写的布隆过滤器方案，使用的是Redis数据库中的BitMap数据类型来实现，而Guava方式实现的布隆过滤器并没有去连接Redis，没有与Redis发生耦合，直接使用即可。
+
+###### 使用方式
+
+1. **添加依赖**
+
+首先，需要在项目中引入Guava包的依赖：
+
+```xml
+<dependency>
+    <groupId>com.google.guava</groupId>
+    <artifactId>guava</artifactId>
+    <version>31.1-jre</version>
+</dependency>
+```
+
+
+
+2. **使用方法**
+
+使用BloomFilter的静态方法`create()`创建`BloomFilter`对象，传入`Funnel`对象：
+
+* 可以使用`Funnels.stringFunnel()`方法创建一个`Funnel<String>`类型的Funnel对象，此时创建的BloomFilter泛型就是String，表示布隆过滤器中存入的是String类型的数据；
+
+* 可以使用`Funnels.integerFunnel()`方法或者`Funnels.longFunnel()`方法，分别创建泛型为Integer或Long类型的BloomFilter，表示布隆过滤器中存入的是Integer或Long类型。
+
+然后传入布隆过滤器中可能传入的元素个数，并设置误判率。**布隆过滤器会根据传入的`预计元素个数`以及`误判率`，计算出布隆过滤器所使用的`二进制数组大小`以及`无偏函数个数`。**
+
+```java
+BloomFilter<String> filter = BloomFilter.create(Funnels.stringFunnel(Charset.defaultCharset()), 1000,0.01);
+```
+
+使用**`put()`**方法往布隆过滤器中添加元素：
+
+```java
+filter.put("test");
+```
+
+使用**`mightContain()`**方法判断元素是否存在于布隆过滤器中：
+
+```java
+filter.mightContain("test");
+```
+
+
+
+
+
+3. **测试案例**
+
+使用一个案例，来测试一下Guava布隆过滤器：
+
+```java
+public class GuavaTest {
+    @Test
+    public void testGuava(){
+        //创建Guava版布隆过滤器
+        BloomFilter<Integer> filter = BloomFilter.create(Funnels.integerFunnel(), 1000);
+
+        //判断元素是否存在
+        System.out.println(filter.mightContain(1));
+
+        //将元素添加进布隆过滤器
+        filter.put(1);
+        //判断元素是否存在
+        System.out.println(filter.mightContain(1));
+        System.out.println(filter.mightContain(2));
+    }
+}
+```
+
+此时执行结果：
+
+![image-20240720205826844](./images/image-20240720205826844.png) 
+
+
+
+
+
+###### 源码分析
+
+根据上面的案例，我们来分提出一个问题：
+
+在构建布隆过滤器时，我们要去设置布隆过滤器的误差率，那这个误差率是不是越小越好？误差率为0是不是最好的？
+
+我们带着这个问题，来看看Guava的源码，看看Guava是如何实现的。
+
+假设我们创建BloomFilter对象时，没有设置误差率，此时调用的就是两个参数的`create()`：
+
+![image-20240720215009505](./images/image-20240720215009505.png)
+
+可以看到：
+
+> **当创建BloomFilter未设置误差率时，默认使用`0.03`的误差率来构建布隆过滤器。**
+
+然后，我们进入到最终调用的`create()`方法中：
+
+```java
+@VisibleForTesting
+static <T extends @Nullable Object> BloomFilter<T> create(
+    Funnel<? super T> funnel, long expectedInsertions, double fpp, Strategy strategy) {
+  checkNotNull(funnel);
+  checkArgument(
+      expectedInsertions >= 0, "Expected insertions (%s) must be >= 0", expectedInsertions);
+  checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
+  checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
+  checkNotNull(strategy);
+
+  if (expectedInsertions == 0) {
+    expectedInsertions = 1;
+  }
+  /*
+   * TODO(user): Put a warning in the javadoc about tiny fpp values, since the resulting size
+   * is proportional to -log(p), but there is not much of a point after all, e.g.
+   * optimalM(1000, 0.0000000000000001) = 76680 which is less than 10kb. Who cares!
+   */
+  long numBits = optimalNumOfBits(expectedInsertions, fpp);
+  int numHashFunctions = optimalNumOfHashFunctions(expectedInsertions, numBits);
+  try {
+    return new BloomFilter<T>(new LockFreeBitArray(numBits), numHashFunctions, funnel, strategy);
+  } catch (IllegalArgumentException e) {
+    throw new IllegalArgumentException("Could not create BloomFilter of " + numBits + " bits", e);
+  }
+}
+```
+
+在该方法中，先是去检查参数的合法性，要求预计元素数量大于0，误差率大于0小于1，然后：
+
+* **调用`optimalNumOfBits()`方法，使用`预计数据量大小n`和`误差率p`来计算布隆过滤器应使用的`bit数组的大小numBits`；**
+* **调用optimalNumOfHashFunctions()方法，使用`预计数量大小n`和`bit数组大小numBits`来计算布隆过滤器应使用的`hash函数个数k`。**
+
+
+
+当我们在构建布隆过滤器时，预计元素数据量设置为1000000，误差率设置为0.03，此时生成的布隆过滤器底层的bit数组大小为7298440，所使用的hash函数个数为5个：
+
+<img src="./images/image-20240720220735456.png" alt="image-20240720220735456" style="zoom:67%;" /> 
+
+当我们在构建布隆过滤器时，预计元素数据量设置为1000000，误差率设置为0.01时，此时生成的布隆过滤器底层bit数组大小为9585058，所使用的hash函数个数为7个：
+
+<img src="./images/image-20240720220929069.png" alt="image-20240720220929069" style="zoom:67%;" /> 
+
+所以我们可以得知：
+
+> **布隆过滤器设置的`误判率越小`，要求的布隆过滤器精度也就越高，所需的资源也就越多，布隆过滤器需要使用的`bit数组也就越大`，`hash函数也就越多`。**
+>
+> 因此，布隆过滤器不是误判率越小越好，而是要根据实际的业务来设置，让布隆过滤器误判率设定为可接受的范围内。
+
+
+
+
+
+
+
+#### 总结
+
 
 在这里，其实并不存在一个完美无缺的方案解决缓存穿透问题。具体选择哪种方案必须依据业务场景来定。那么，我们到底该如何选择呢？
 
-考虑并发度的高地，**`并发度低`的我们可以简单的使用`缓存空值`的方案来解决缓存穿透问题，`并发度高`的情况下我们最好使用`布隆过滤器`的方案解决缓存穿透问题**。
+> 考虑并发度的高地，**`并发度低`的我们可以简单的使用`缓存空值`的方案来解决缓存穿透问题，`并发度高`的情况下我们最好使用`布隆过滤器`的方案解决缓存穿透问题**。
+>
 
 当然，除了上面提到的布隆过滤器和缓存空数据的方案之外，我们还可以通过:
 
@@ -1539,13 +1927,17 @@ public Result queryById(Long id) {
 
 ---
 
-### 2）缓存雪崩
+### 3）缓存雪崩
 
 #### 什么是缓存雪崩？
 
 > **`缓存雪崩`是指由于缓存系统的整体失效，导致大量请求直接到达后端数据库，进而可能造成数据库崩溃和整个系统的崩溃**。
 
-这种现象通常发生在缓存服务器重启或宕机时，或者是大规模的key同时失效导致的结果。
+出现这种情况可能的原因是：
+
+原因1：Redis主机发生了宕机，导致Redis缓存失效；
+
+原因2：Redis中大量的key同一时间失效，导致大量请求都到达数据库。
 
 <img src=".\images\1653327884526.png" alt="653327884526" style="zoom:67%;" />
 
@@ -1561,21 +1953,31 @@ public Result queryById(Long id) {
 
 在设置失效时间的时候加上一个随机值，比如1-5分钟随机。这样就可以避免由于使用相同的过期时间导致某一时刻大量的key过期引发的雪崩问题。
 
+
+
 * **redis集群**
 
 保证Redis缓存的高可用，防止Redis因宕机导致雪崩问题。可以使用主从 + 哨兵或者Redis分片集群的方式来避免出现因单个Redis服务器宕机导致整个缓存直接失效。
+
+
 
 * **多级缓存**
 
 通过实施多级缓存策略，我们可以优化系统的性能并降低因缓存失效导致的风险。在这种策略中，本地进程内的缓存充当第一级缓存，而Redis作为第二级远程缓存。每一级缓存都设定有独立且差异化的超时时间，这样的设计确保了即使一级缓存的数据或被清除，仍能有耳机或其他级别的缓存来提供数据支持。这种层级化的缓存机制为系统提供了额外的弹性层，当一层缓存遇到问题时，其他层级能够起到“安全网”的作用，从而可以有效的避免雪崩现象。
 
+
+
 * **使用熔断机制**
 
 当系统流量达到预定的极限时，为避免对数据库造成过大压力，我们将自动显示“系统繁忙”提示。这样做可以确保至少有一部分用户能够顺畅地使用我们的服务。对于未能即时访问的用户，只要多刷新几次，也是可以获得正常访问的。
 
+
+
 * **缓存预热**
 
 缓存预热是一种关键技术，它在系统启动前预先加载关键数据到缓存中，以减少系统上线时对后端数据库的冲击。由于新上线的系统缓存是空的，如果没有预热过程，大量并发请求将直接访问数据库，极有可能在系统上线初期导致服务崩溃。因此，通过在系统上线之前将高频率访问数据从数据库加载到Redis等缓存系统中，可以确保用户请求首先由缓存服务处理，从而减轻数据库的压力。实施缓存预热通常涉及编写批处理任务，这些任务可以在系统启动期间执行，或者通过定时任务定期去执行。定期执行更能保证数据的实时性，但是，同样会耗费系统的部分性能，尤其是在数据量大的时候。所以，具体选择如何进行预热数据，还是需要综合考虑预热数据量的大小以及预热数据更新是否频繁等因素。
+
+
 
 * **互斥锁**
 
@@ -1591,7 +1993,7 @@ public Result queryById(Long id) {
 
 ---
 
-### 3）缓存击穿
+### 4）缓存击穿
 
 #### 什么是缓存击穿？
 
@@ -1860,6 +2262,7 @@ public Result queryById(Long id) {
 
     //如果命中，判断热点数据是否已过期
     RedisData redisData = JSONUtil.toBean(shopJsonStr, RedisData.class);
+    
     if (redisData.getExpireTime().isBefore(LocalDateTime.now())){
         //如果已过期，需要缓存重建
         //获取互斥锁
@@ -3346,7 +3749,7 @@ Redis实现分布式锁需要实现两个基本方法
 
     防止因为系统宕机后，出现因锁一直存在而所有线程都被阻塞的问题，但是为了防止程序没有运行完就去释放锁，一般需要将超时的时间设置的比运行程序的时间稍微长一点，比如10秒。
 
-  添加锁是一个操作，设置超时时间也是一个操作，有可能会出现在添加锁之后系统宕机，此时还没有设置超时时间，那么还是会出现锁没有得到释放的问题。所以，我们希望将添加锁与设置超时时间这两个操作，作为一个原子操作去执行。
+  添加锁是一个操作，设置超时时间也是一个操作，有可能会出现在添加锁之后系统宕机，此时还没有设置超时时间，那么还是会出现锁没有得到释放的问题。所以，我们希望将**添加锁与设置超时时间这两个操作，作为一个原子操作去执行**。
 
   在Redis中的SET命令中，给我们提供了各种参数，其中就包括设置超时时间以及设置NX操作，我们只需要执行：
 
@@ -3354,7 +3757,7 @@ Redis实现分布式锁需要实现两个基本方法
   SET key value EX 超时时间 NX
   ```
 
-  这种方式去SETNX的同时，也能够设置超时时间，这样就能够保证二者是一个原子操作，从而保证二者能够同时成功与同时失败，从而保证分布式锁不会一直存在。所以：
+  **这种方式去SETNX的同时，也能够设置超时时间，这样就能够保证二者是一个原子操作，从而保证二者能够同时成功与同时失败，从而保证分布式锁不会一直存在**。所以：
 
 **基于Redis实现分布式锁的两个命令**
 
@@ -3374,11 +3777,9 @@ DEL key
 
 
 
+**如果线程获取锁失败了，那么失败以后，线程该如何做呢？**
 
-
-如果线程获取锁失败了，那么失败以后，线程该如何做呢？
-
-有两种机制，一种是阻塞式机制，即获取锁失败后，线程会进入等待，等待其他线程释放锁后再去尝试获取锁；一种是非阻塞式的获取，即获取锁失败后，会直接结束，不进入等待。
+有两种机制，一种是`阻塞式机制`，即获取锁失败后，线程会进入等待，等待其他线程释放锁后再去尝试获取锁；一种是`非阻塞式的获取`，即获取锁失败后，会直接结束，不进入等待。
 
 我们这里使用的是非阻塞式机制。
 

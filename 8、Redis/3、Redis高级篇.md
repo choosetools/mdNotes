@@ -5276,3 +5276,1990 @@ Tomcat也是使用集群的方式，在Tomcat中，也存在着一层缓存，�
 
 ---
 
+# 四、布隆过滤器
+
+> **`布隆过滤器认为数据库中不存在该数据，则一定不存在；若认为数据可能存在，则数据库中不一定存在。存在着一定的误判`。**
+
+## 布隆过滤器概述
+
+### 引入
+
+假设现在有一个业务需求：现在有50亿个电话号码，判断10万个电话是否属于其中的行列，即判断这10万个号码是否已经存在，该如何实现？
+
+也就是说判断在50亿记录中有没有，有就返回1，没有就返回0。
+
+* 如果去数据库中查询，若想快速是实现有点难；
+
+* 如果将数据存放在内存集合中，50亿个数据大约40GB，内存太大了。
+
+所以上述两种方式都不好。
+
+**如果要去判断海量数据中某个数据是否存在，可以使用`布隆过滤器`。**
+
+
+
+### 是什么？
+
+**布隆过滤器（`Bloom Filter`）**是1970年由布隆提出的，它实际上是由一个很长的二进制向量和一系列随意映射函数组成。
+
+如果不考虑内存容量问题，hashmap是最简单的一种过滤器，把所有数据存在map中，通过get(key)判断是否存在进行过滤。当然使用hashMap是不现实的，因为不满足内存容量要求，而布隆过滤器就是这样一种使用比较少的内存存储大量数据映射，能满足提前过滤要查询的数据在系统中是否一定不存在的要求。
+
+**布隆过滤器，实际上是一个很长的初始值都为0的二进制数组 + 一系列随机hash算法映射函数，是一种空间效率极高的概率型算法和数据结构，主要用于快速判断集合中是否存在某个元素**。初始时bit数组中每一位元素为0，每个输入值通过一组hash算法，得到bit数组的下标，并把该bit位标识为1。如果一个要验证的值通过这组hash函数得到的下标有不为1的情况，那么就可以肯定这个值一定不存在。
+
+**布隆过滤器初始状态：**
+
+![image-20240719043617989](.\images\image-20240719043617989.png) 
+
+与BitMap数据类型一样，初始时布隆过滤器中每一位bit都是0，当我们往其中存入数据时，就会使用hash函数计算该数据在bit数组中的位置，然后将该位置的bit设置为1，之后我们存入数据时，也会使用hash算法计算该数据所处的bit数组中的位置，然后判断该位置的bit是否为0，如果为0，表示系统中一定不存在该数据；如果不为1，表示系统中可能存在该元素。
+
+**使用布隆过滤器的目的**：减少内存占用。
+
+**布隆过滤器的实现方式**：不保存数据信息，只是在内存中做一个是否存在的标记flag。
+
+**布隆过滤器的本质**：快速判断具体数据是否存在于一个大的集合中。
+
+通常我们会遇到很多要判断一个元素是否在某个集合中的业务场景，一般想到的是将集合中所有的元素都保存起来，然后通过比较确定。使用链表、树、哈希表等数据结构都可以实现，但是随着集合元素的增加，我们需要的存储空间也会呈现线性增长，最终达到瓶颈，检索速度越来越慢。上述三种结构的检索时间复杂度分别为O(n)、O(logn)、O(1)。这个时候，布隆过滤器（Bloom Filter）就应运而生。
+
+![BloomFilter](.\images\BloomFilter.png)
+
+
+
+### 能干嘛？
+
+布隆过滤器能够高效地插入和查询，占用空间小，其底层是使用Bit数组实现的，返回的结果是不确定性的，不够完美。
+
+因为其底层是使用hash函数来计算key在数组中存放的位置，存在hash冲突，也就是多个key使用hash算法计算出的结果有可能是相同的，那么其是否存在的flag值在bit数组中存放的位置是相同的，此时我们就无法根据bit数组中的值来判断key是否一定存在，存在一定的误差。
+
+> 布隆过滤器可以告诉我们"**`某样东西一定不存在或者可能存在`**"，也就是说**布隆过滤器说这个数不存在则一定不存在，布隆过滤器说这个数存在则可能存在**。
+>
+> **布隆过滤器可以添加元素，但是`不能删除元素`，由于涉及hashcode判断依据，删除元素会导致误判率增加。**
+
+假设系统中存在key1、key2、key3三个元素，由于hash冲突这三个元素都放在同一个位置，假设将系统中的key1删除时同时将布隆过滤器中该元素对应位置的数据也删除了，那么此时去判断key2和key3时，系统中存在该元素，但是使用布隆过滤器时由于将这两个元素对应位置的数据删除了，所以布隆过滤器却认为系统中不存在这两个元素，此时就产生了误判，布隆过滤器认为数据不存在时，系统中应该一定不存在对应数据，但是这里却存在。
+
+
+
+
+
+## 布隆过滤器原理（:star:）
+
+### 数据结构
+
+布隆过滤器实质就是**`一个大型位数组`** + **`多个不同的无偏hash函数`**（无偏表示分布均匀）。
+
+**一个大型位数组（二进制数组）**
+
+![位数组.png](.\images\e94e504adc5a75a2d7f562dc44166511.png)
+
+**多个无偏hash函数**
+
+无偏hash函数就是能把元素的hash值计算的比较均匀的hash函数，能使得计算后的元素下标比较均匀的映射到位数组中。
+
+如下就是一个简单的布隆过滤器示意图，其中key1、key2代表增加的元素，a、b、c即为无偏hash函数，最下层即为二进制数组。
+
+![布隆过滤器.png](.\images\9ebde5c11ad69447314c216acf188fc8.png)
+
+
+
+### 空间计算
+
+在布隆过滤器添加元素之前，首先需要初始化布隆过滤器的空间，也就是上面所说的二进制数组，除此之外还需要计算无偏hash函数的个数。布隆过滤器提供了两个参数，分别是预计`加入元素的大小n`，`运行的错误率f`。布隆过滤器中有算法根据这两个参数会计算出`二进制数组的大小l`，以及`无偏hash函数的个数k`。
+
+它们之间的关系比较简单：
+
+* 错误率越低，位数组越长，空间占用较大。
+
+* 错误率越低，无偏hash函数越多，计算耗时较长。
+
+如下地址是一个免费的在线布隆过滤器计算网站：https://krisives.github.io/bloom-calculator/
+
+> **注意：**
+>
+> * 使用时最好不要让实际元素数量远大于初始化数量，最好一次性就将二进制数值大小给够，避免扩容。
+>
+> * 当实际元素数量超过初始化数量时，应该对布隆过滤器进行重建，重新分配一个更大size的过滤器，再将所有的历史元素批量add到新的布隆过滤器中。（类似于HashMap的扩容操作）
+
+
+
+
+
+---
+
+### 增加元素原理
+
+往布隆过滤器中添加元素，添加的key需要根据k个无偏hash函数计算得到多个hash值，然后对数字长度进行取模得到数组下标的位置，然后将对应数组下标的位置的值置为1。
+
+过程：
+
+1. 通过k个无偏hash函数计算得到k个hash值
+2. 依次取模数组长度，得到数组索引
+3. 将计算得到的数组索引下标位置数据修改为1
+
+例如，key = Liziba，无偏hash函数的个数k=3，分别为hash1、hash2、hash3。三个hash函数计算后得到三个数组下标值，并将其值修改为1，如下图所示：
+
+![增加元素.png](.\images\a3e7d217ecb825e94bdc577a467eb29d.png) 
+
+
+
+
+
+---
+
+### 查询元素原理
+
+布隆过滤器最大的用处就在于判断某样东西一定不存在或者可能存在，而这个就是查询元素的结果。
+
+其查询元素的过程如下：
+
+1. 通过k个无偏hash函数计算得到k个hash值
+2. 依次取模数组长度，得到数组索引
+3. 判断索引处的值是否全部为1，如果全部为1则存在（这种存在可能是误判），如果存在一个0则必定不为0。
+
+也就是：**有，可能是有；无，则一定无**。
+
+
+
+
+
+
+
+---
+
+### 使用原理
+
+1. **`初始化bitmap`**
+
+   布隆过滤器本质上是由m的位向量或位列表（仅包含0或1位值的列表）组成，最初所有的值均设置为0。
+
+   ![image-20240719161047343](.\images\image-20240719161047343.png)
+
+2. **`添加占坑位`**
+
+   当我们向布隆过滤器中添加数据时，为了尽量避免地址冲突，会使用多个hash函数对key进行运算，算得一个下标索引值，然后对数组长度进行取模运算得到一个位置，每个hash哈数都会算得一个不同的位置。再把位数组的这几个位置都置为1，就完成了add操作。
+
+   例如，我们添加一个字符串wmyskxz，对字符串进行了多次hash运算 -> 取模运行 -> 得到坑位 -> 置为1
+
+   ![image-20240719161404361](.\images\image-20240719161404361.png)
+
+3. **`判断是否存在`**
+
+   向布隆过滤器查询某个key是否存在，先把这个key通过相同的多个hash函数进行运算，查看对应的位置是否都为1，`只要有一个位为零，则说明布隆过滤器中key不存在；如果这几个位置全都是1，那么说明极有可能存在`。
+
+   因为这些位置的1可能是因为其他的key存在导致的，也就是前面说过的hash冲突。
+
+   就比如我们在add了字符串wmyskxz数据止之后，很明显下面1/3/5这几个位置的1是因为第一次添加的wmyskxz而导致的；
+
+   此时我们查询一个没添加的不存在的字符串inexistent-key，它有可能计算后坑位也是1/3/5，这就是误判了。
+
+   ![image-20240719162244986](.\images\image-20240719162244986.png) 
+
+   ![image-20240719162304157](.\images\image-20240719162304157.png)
+
+
+
+
+
+---
+
+### 为什么不能删除数据？
+
+BloomFilter中不允许有删除操作，因为删除后，可能会造成原来存在的元素返回不存在，在这个是不允许的，举一个例子说明：
+
+<img src=".\images\8d4d52db4fd3f64073bf73bfeea0ab17.png" alt="8d4d52db4fd3f64073bf73bfeea0ab17" style="zoom:67%;" /> 
+
+上图中，刚开始时，有元素X、Y和Z，其hash的bit如图中所示，当删除X后，会把bit数组索引为4和9置为0，这同时会造成查询Z时报不存在问题，这对BloomFilter来讲不是容忍的，因为它要么返回绝对不存在，要么返回可能存在。
+
+由于BloomFilter中不允许删除的机制，会导致其中无效的元素可能越来越多，即已经在数据库中删除的元素，但在bloomfilter中还可能认为存在，这会造成越来越多的误判。
+
+
+
+
+
+---
+
+### 存在误判的原因
+
+**哈希函数**是将任意大小的输入数据转换成特地给大小的输出数据的函数，转换后的数据称为哈希值或哈希编码，也叫散列值。
+
+![hash](.\images\hash.png)
+
+如果两个散列值是不相同的（根据同一函数），那么这两个散列值的原始输入也是不相同的。
+
+这个特性是散列函数具有确定性的结果，具有这种性质的散列函数称为单向散列函数。
+
+散列函数的输入和输出不是唯一对应关系的，如果两个散列值相同，两个输入值很可能是相同的，但也可能不同。这种情况称之为散列碰撞。
+
+用hash表存储大量数据时，空间效率还是很低，当只有一个hash函数，很容易发生哈希碰撞。因此我们**设计布隆过滤器时，使用到多个hash函数来分别计算出数据所对应的hash值，从而减少hash冲突带来的影响。**
+
+当有变量被加入到集合时，通过N个映射函数将这个变量映射成位图中的N个点，并将它们置为1（假设有两个变量都通过3个映射函数）：
+
+![hash冲突](.\images\hash冲突.png) 
+
+查询某个变量的时候，我们只要看看这些点是不是都是1，就可以大概率知道集合中有没有它了。
+
+如果这些点，有任何一个为零，则查询变量一定不存在；
+
+如果都是1，则被查询变量可能存在，为什么是可能存在，而不是一定存在呢？
+
+因为映射函数本身就是散列函数，散列函数是有可能碰撞的，如上图中两个数据使用hash函数计算得到的3号坑位都是1，也就是说不同的数据使用hash函数出来的hash值对应的数组索引可能是相同的，那么我们就无法根据某一个或某几个数组索引都是1来判断该值一定存在，因为会被其他数据影响。
+
+类似于Java中的HashMap，当我们往HashMap中添加key=value时，会先使用hash函数计算出key的hash值所对应底层数组中的索引，有可能存在不同的key计算出来的索引值相同，此时该数组中存在着元素，那么我们就还需要使用到equals()与hashCode()方法来判断这两个key是否一致，如果一致则是修改操作，如果不一致，则在该数组位置使用链表的方式进行连接。
+
+
+
+
+
+
+
+---
+
+## 布隆过滤器使用场景
+
+> 正是基于布隆过滤器的快速检测特性，我们可以把数据写入数据库时，使用布隆过滤器做个标记。当我们要去查询数据时，先去通过查询布隆过滤器快速判断数据是否存在，如果不存在，就不需要再去Redis或数据库中查询了。这样一来，即便发生了缓存穿透，大量请求都会被布隆过滤器进行过滤，而不会进入到程序中查询Redis与数据库，也就不会影响到Redis和mysql数据库的正常运行。
+>
+> 布隆过滤器可以使用Redis实现，本身就能承担较大的并发访问压力。
+
+1. **`解决缓存穿透问题，和Redis结合bitmap使用`**
+
+**缓存穿透是什么？**
+
+一般情况下，查询数据是先去查询Redis缓存，缓存中没有时再去数据库中查询。当数据库中也不存在该数据时，那么每次查询都会去访问数据库，这就是缓存穿透。
+
+缓存穿透带来的问题是，当有大量请求查询数据库中不存在的数据时，就会给数据库带来压力，甚至拖垮数据库。
+
+**可以使用布隆过滤器解决缓存穿透问题**
+
+把已存在数据的key存储在布隆过滤器中，相当于Redis前面挡着一个布隆过滤器。
+
+当有新的请求时，先到布隆过滤器中查询是否存在：
+
+如果布隆过滤器中不存在该条数据则直接返回；
+
+如果布隆过滤器中已存在，再去查询Redis缓存，如果Redis中没有则去查询MySQL数据库。
+
+由于布隆过滤器如果无肯定无的特性，就能够将数据库中不存在的数据查询请求直接拦截，不会再去查询Redis与数据库。
+
+<img src=".\images\12347890231ahfsdka.png" alt="12347890231ahfsdka" style="zoom:67%;" /> 
+
+
+
+
+
+2. **`黑名单校验，识别垃圾邮件`**
+
+发现存在黑名单中的，就执行特定操作。比如：识别垃圾邮件，只要是邮箱在黑名单中的邮件，就识别为垃圾邮件。
+
+假设黑名单的数量是数以亿计的，存放起来就是非常耗费存储空间，布隆过滤器则是一个较好的解决方案。把所有黑名单都放在布隆过滤器中，在收到邮件时，判断邮件地址是否在布隆过滤器中即可。
+
+
+
+3. **`白名单校验`**
+
+布隆过滤器既可以用于校验黑名单，也可以用于校验白名单。只有存放在白名单中才可以访问，不在白名单中的就不允许访问。
+
+
+
+
+
+
+
+
+
+---
+
+## 手写实现布隆过滤器
+
+在这一节，我们将结合bitmap类型手写一个简单的布隆过滤器，体会一下其设计思想。
+
+### 整体设计
+
+![image-20240720100109746](.\images\image-20240720100109746.png) 
+
+
+
+**布隆过滤器二进制数组构建过程：**
+
+1. 预加载符合条件的记录
+2. 计算每条记录的hash值
+3. 计算hash值对应的bitmap数组位置
+4. 修改值为1
+
+
+
+**查找元素是否存在的过程：**
+
+1. 计算元素的hash值
+2. 计算hash值对应二进制数组的位置
+3. 找到数组中对应位置的值，0代表不存在，1代表存在
+
+![image-20240720100700683](.\images\image-20240720100700683.png) 
+
+
+
+
+
+### 步骤设计
+
+**SETBIT的构建过程**
+
+1. 使用@PostConstruct注解先去初始化白名单数据，该方法在依赖注入完成后去执行该@PostConstruct注解修饰的方法，一般用于初始化，只会被执行一次。
+2. 计算要插入元素的hash值
+3. 通过上一步的hash值计算出对应二进制数组的坑位
+4. 将对应坑位的值修改为数字1，表示存在
+
+在一般情况下，布隆过滤器会使用多个不同的hash函数来计算元素的hash值与数组中的对应坑位，并将坑位的值修改为1，这样可以减少因hash冲突而带来的误差，这里我们自己手写就使用一个hash函数来实现。
+
+
+
+**GETBIT查询是否存在**
+
+1. 计算元素的hash值
+2. 通过上一步hash值算出对应的二进制数组的坑位
+3. 返回对应坑位的值，零表示无，1不表示存在
+
+当返回0时，表示数据库中不存在该数据，当返回1时，表示数据库中可能存在该数据。这里我们自己手写，所以就使用了一个hash函数来获取，存在着比较大的误差。
+
+
+
+
+
+### 具体实现
+
+#### 环境搭建
+
+1. **创建用户表t_customer**
+
+在远程的Linux服务器上（地址是192.168.1.101）的mysql数据库atguigu_redis中，执行下面命令，创建t_customer用户表：
+
+```sql
+CREATE TABLE `t_customer` (
+
+  `id` int(20) NOT NULL AUTO_INCREMENT,
+
+  `cname` varchar(50) NOT NULL,
+
+  `age` int(10) NOT NULL,
+
+  `phone` varchar(20) NOT NULL,
+
+  `sex` tinyint(4) NOT NULL,
+
+  `birth` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (`id`),
+
+  KEY `idx_cname` (`cname`)
+
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4;
+```
+
+![image-20240720111017593](.\images\image-20240720111017593.png) 
+
+
+
+2. **创建一个module**
+
+在项目下，创建一个module，叫做`redis_study`，在该module下手写一个布隆过滤器。
+
+
+
+
+
+3. **使用MyBatisX插件构建项目**
+
+在项目中，连接atguigu_redis数据库，然后使用MyBatisX插件自动构建项目：
+
+<img src=".\images\image-20240720121130796.png" alt="image-20240720121130796" style="zoom:67%;" /> 
+
+设置要构建的项目存放的包名，这里是我们刚才所创建的redis_study包，然后设置包名与实体类包名，然后去设置实体类名称：
+
+![image-20240720122542603](C:\Users\14036\AppData\Roaming\Typora\typora-user-images\image-20240720122542603.png)
+
+点击NEXT，然后去构建service层、mapper层：
+
+![image-20240720122625781](.\images\image-20240720122625781.png)
+
+点击FINISH就将项目整体构建完毕了：
+
+<img src=".\images\image-20240720122655832.png" alt="image-20240720122655832" style="zoom:67%;" /> 
+
+由于此时我们没有导入任何依赖，所以此时会报错。
+
+
+
+
+
+4. **引入相关依赖**
+
+在pom.xml，首先引入SpringBoot的父工程，将项目设置为SpringBoot项目：
+
+```xml
+<parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.0.5</version>
+    <relativePath/>
+</parent>
+```
+
+然后引入相关依赖，包括SpringBoot的web项目启动依赖、Jedis依赖、Redis整合依赖、commons工具类依赖、MySQL数据库驱动、Druid数据库连接池依赖、MyBatis整合、hutool依赖、Junit依赖、test整合依赖、log4j以及lombok依赖：
+
+```xml
+<dependencies>
+    <!--web工程所需依赖-->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!--整合aop-->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-aop</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>redis.clients</groupId>
+        <artifactId>jedis</artifactId>
+        <version>5.1.0</version>
+    </dependency>
+
+    <!--redis依赖-->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-redis</artifactId>
+    </dependency>
+
+    <!--整合mybatis-->
+    <dependency>
+        <groupId>org.mybatis.spring.boot</groupId>
+        <artifactId>mybatis-spring-boot-starter</artifactId>
+        <version>3.0.1</version>
+    </dependency>
+
+    <!--mybatis-plus-->
+    <dependency>
+        <groupId>com.baomidou</groupId>
+        <artifactId>mybatis-plus-boot-starter</artifactId>
+        <version>3.5.3.1</version>
+    </dependency>
+
+    <!-- 数据库相关配置启动器 -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-jdbc</artifactId>
+    </dependency>
+
+    <!-- druid启动器的依赖  -->
+    <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>druid-spring-boot-3-starter</artifactId>
+        <version>1.2.22</version>
+    </dependency>
+    <dependency>
+        <groupId>com.alibaba</groupId>
+        <artifactId>druid</artifactId>
+        <version>1.2.22</version>
+    </dependency>
+
+    <dependency>
+        <groupId>cn.hutool</groupId>
+        <artifactId>hutool-all</artifactId>
+        <version>5.8.26</version>
+    </dependency>
+
+    <!-- mysql驱动类-->
+    <dependency>
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>${mysql.version}</version>
+    </dependency>
+
+
+    <!--lombok-->
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+    </dependency>
+
+
+    <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>${junit-jupiter.version}</version>
+        <scope>test</scope>
+    </dependency>
+
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-test</artifactId>
+    </dependency>
+
+    <dependency>
+        <groupId>log4j</groupId>
+        <artifactId>log4j</artifactId>
+        <version>1.2.17</version>
+    </dependency>
+</dependencies>
+
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+```
+
+
+
+
+
+5. **配置yaml配置文件**
+
+在resources创建一个application.yaml文件，在该文件中，配置mysql数据库与Redis的连接。以下是我自己的mysql数据库与Redis连接信息，还有mybatis的XML映射文件配置：
+
+```yaml
+spring:
+  data:
+    redis:
+      host: 192.168.1.101
+      port: 6379
+      password: 061535asd
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      url: jdbc:mysql://192.168.1.101/atguigu_redis?useUnicode=true&characterEncoding=utf-8
+      username: root
+      password: 061535asd
+      driver-class-name: com.mysql.cj.jdbc.Driver
+
+
+mybatis:
+  configuration:  # setting配置
+    map-underscore-to-camel-case: true #驼峰
+  type-aliases-package: com.atguigu.redis.entities # 配置别名
+  mapper-locations: classpath:/mapper/*.xml # mapperxml位置
+```
+
+
+
+6. **创建启动类**
+
+在com.atguigu.redis包下，创建一个启动类，叫做BloomFilterRun，并在该类中使用@MapperScan注解指定扫描的mapper包：
+
+```java
+@SpringBootApplication
+@MapperScan("com.atguigu.redis.mapper")
+public class BloomFilterRun {
+    public static void main(String[] args) {
+        SpringApplication.run(BloomFilterRun.class, args);
+    }
+}
+```
+
+
+
+
+
+7. **创建方法**
+
+首先，我们先去创建两个方法，分别用于添加用户数据与获取指定id的用户数据。
+
+在CustomerServiceImpl实现类中，创建一个addCustomer()方法用于插入用户，创建一个findCustomerById()方法用户读取用户数据：
+
+```java
+@Service
+@Slf4j
+public class CustomerServiceImpl extends ServiceImpl<CustomerMapper, Customer>
+    implements CustomerService{
+
+    public static final String CACHE_KEY_CUSTOMER = "customer:";
+
+    private ObjectMapper objectMapper = new ObjectMapper();
+
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    //插入用户操作
+    @Transactional
+    @Override
+    public void addCustomer(Customer customer){
+        boolean isSuccess = save(customer);
+        if (isSuccess){
+            //插入成功，需要将数据写入Redis，使用JSON格式
+            String key = CACHE_KEY_CUSTOMER + customer.getId();
+            try {
+                String customerJson = objectMapper.writeValueAsString(customer);
+                stringRedisTemplate.opsForValue().set(key, customerJson);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    //读操作
+    @Override
+    public Customer findCustomerById(Integer customerId){
+        //先去Redis查询
+        String key = CACHE_KEY_CUSTOMER + customerId;
+        String customerJson = stringRedisTemplate.opsForValue().get(key);
+        Customer customer = null;
+        if (customerJson == null || customerJson.isBlank()){
+            //没有数据，再去mysql数据库中查询
+            customer = getById(customerId);
+            if (customer != null) {
+                //并将查询到的数据存入到Redis中
+                try {
+                    customerJson = objectMapper.writeValueAsString(customer);
+                    stringRedisTemplate.opsForValue().set(key, customerJson);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return customer;
+        }
+
+        //有数据，则将JSON格式数据转换成对象
+        try {
+            customer = objectMapper.readValue(customerJson, Customer.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        return customer;
+    }
+
+}
+```
+
+
+
+
+
+8. **创建controller**
+
+创建com.atguigu.redis.controller包，在该包下，创建一个CustomerController类，在该类中分别定义两个handler方法，分别用于插入两条用户数据，以及获取指定id的用户数据信息：
+
+```java
+@RestController
+@Slf4j
+public class CustomerController {
+    @Autowired
+    private CustomerService customerService;
+
+    @PostMapping("/customer/add")
+    public void addCustomer(){
+        //初始化两条用户数据
+        for (int i = 0; i < 2; i++) {
+            Customer customer = new Customer();
+            customer.setCname("customer"+i);
+            customer.setAge(new Random().nextInt(30)+1);
+            customer.setPhone("1381111xxxx");
+            customer.setSex(new Random().nextInt(2));
+            customer.setBirth(Date.from(LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant()));
+            customerService.addCustomer(customer);
+        }
+    }
+
+    
+    @GetMapping("/customer/{id}")
+    public Customer findCustomerById(@PathVariable("id") Integer id){
+        return customerService.findCustomerById(id);
+    }
+}
+```
+
+这样一来，我们最基本的框架就搭建完毕了，以上还没有引入布隆过滤器，只是引入了基本的方法。
+
+我们启动Postman，调用上面的方法add()方法进行测试，往其中添加几个数据：
+
+<img src=".\images\image-20240720141229294.png" alt="image-20240720141229294" style="zoom: 80%;" /> 
+
+那么此时的Redis中，也会存在相应的数据信息：
+
+<img src=".\images\image-20240720141308159.png" alt="image-20240720141308159" style="zoom:67%;" /> 
+
+此时，我们最基本的框架和方法就搭建完毕了，现在我们要去引入布隆过滤器来实现过滤的功能。
+
+
+
+
+
+
+
+---
+
+#### 新增布隆过滤器案例
+
+1. **初始化白名单**
+
+首先实现布隆过滤器，先去初始化白名单，也就是将数据库中已经存在的数据，需要导入到布隆过滤器中。这样一来，当我们去查询数据库中已有的数据时，该数据已经存入到布隆过滤器中，也就是布隆过滤器的白名单，此时需要布隆过滤器放行。
+
+创建com.atguigu.redis.`config`包，在该包下，创建一个`BloomFilterInit`类，该类是用来初始化布隆过滤器的白名单的，使用`@Component`注解修饰。
+
+然后，在该类下，创建一个`init()`方法，并且使用@PostConstruct注解修饰，该注解表示该方法会在当前类加载后调用，一般用于初始化。
+
+```java
+@Component
+@Slf4j
+public class BloomFilterInit {
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @PostConstruct
+    public void init(){
+    }
+}
+```
+
+然后，我们在该init()方法中，使用Redis的BitMap数据类型来实现布隆过滤器，key设置为"`whitelistCustomer`"。
+
+在该白名单中，预加载id为12的用户：将id为12的用户加载到布隆过滤器中，使用hash算法计算出该用户在bit数组中的位置，然后使用bitMap将该位置设置为1。
+
+```java
+@Component
+@Slf4j
+public class BloomFilterInit {
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    @PostConstruct
+    public void init(){
+        //白名单客户12加载到布隆过滤器
+        String key = "customer:12";
+
+        //计算hashCode，由于存在计算出来负数的可能，我们取绝对值
+        int hashValue = Math.abs(key.hashCode());
+
+        //通过hashValue和2的32次方取余，获得对应的下标坑位
+        long index = (long) (hashValue % Math.pow(2, 32));
+        
+        //设置Redis中bitMap的对应坑位，将值设置为1，这里bitMap的key是whitelistCustomer
+        stringRedisTemplate.opsForValue().setBit("whitelistCustomer", index, true);
+    }
+}
+```
+
+我们这里将布隆过滤器的bit数组长度设置为2^32次方，那么得到hash值以后，需要对2^32次方进行取余操作，得到当前数据在bit数组中的位置。
+
+> 注意：这里仅仅是将id为12的用户添加到布隆过滤器中做一个测试，一般情况下，我们需要将数据表中的所有数据都加入到布隆过滤器。
+
+
+
+
+
+
+
+2. **新建工具类用于检验**
+
+在com.atguigu.redis.utils包下，创建一个工具类，叫做CheckUtils，该工具类就是根据传入的数据，该工具类中的方法就是用于在查询前使用布隆过滤器进行过滤，查询BloomFilter中是否包含该数据，如果布隆过滤器认为包含返回true，如果布隆过滤器认为不包含则返回false。
+
+```java
+@Component
+@Slf4j
+public class CheckUtils {
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
+
+    public boolean checkWithBloomFilter(String bloomName, String key){
+        //计算hash值
+        int hashValue = Math.abs(key.hashCode());
+
+        //计算在bit数组中的位置
+        long index = (long) (hashValue % Math.pow(2, 32));
+
+        //获取bitmap中对应位置的数据
+        return Boolean.TRUE.equals(stringRedisTemplate.opsForValue().getBit(bloomName, index));
+    }
+}
+```
+
+第一个参数是使用Redis的BitMap数据类型实现BloomFilter，BitMap这个数据的key，这里使用`bloomName`来表示；
+
+第二个参数是我们要进行筛选的数据的key，比如我们要筛选用户12在数据库中是否存在，在Redis中，用户12信息的key是customer:12，所以在布隆过滤器中，我们也是将customer:12计算出hash值然后转换成BitMap的数组索引，将该索引的值设置为1，所以若要使用checkWithBloomFilter()方法判断用户12是否存在，则key传入的就是"customer:12"。
+
+这样一来，使用布隆过滤器检查是否存在的工具方法已经实现完成了，接下来，我们就要在实际的业务中使用该检查方法。
+
+
+
+
+
+3. **修改添加用户信息逻辑**
+
+去修改用户信息的逻辑，在添加完用户以后，还需要将该用户的key添加到布隆过滤器中，这样一来，后续查询用户信息时，就不会因为布隆过滤器中不存在这一用户信息而被阻挡：
+
+```java
+@Transactional
+@Override
+public void addCustomer(Customer customer){
+    boolean isSuccess = save(customer);
+    if (isSuccess){
+        //插入成功，需要将数据写入Redis，使用JSON格式
+        String key = CACHE_KEY_CUSTOMER + customer.getId();
+        try {
+            String customerJson = objectMapper.writeValueAsString(customer);
+            stringRedisTemplate.opsForValue().set(key, customerJson);
+
+            //===================================
+            //将数据写入布隆过滤器中
+            //计算hashCode，由于存在计算出来负数的可能，我们取绝对值
+            int hashValue = Math.abs(key.hashCode());
+            //通过hashValue和2的32次方取余，获得对应的下标坑位
+            long index = (long) (hashValue % Math.pow(2, 32));
+            //设置Redis中bitMap的对应坑位，将值设置为1，这里bitMap的key是whitelistCustomer
+            stringRedisTemplate.opsForValue().setBit("whitelistCustomer", index, true);
+            //=====================================
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+```
+
+
+
+
+
+4. **添加布隆过滤器筛选逻辑**
+
+在查询用户信息时，修改查询逻辑，在查询Redis之前，添加一个查询布隆过滤器的逻辑，先根据用户id，去布隆过滤器中查询，如果查询布隆过滤器是存在的，则再去查询Redis与数据库，如果布隆过滤器表示不存在，则直接返回。（布隆过滤器中有，则不一定有；布隆过滤器中无，则一定无）
+
+```java
+@Override
+public Customer findCustomerById(Integer customerId){
+    //key
+    String key = CACHE_KEY_CUSTOMER + customerId;
+
+    //=================================================
+    //布隆过滤器筛选
+    //无是绝对无，有是可能有
+    if(!checkUtils.checkWithBloomFilter("whitelistCustomer", key)){
+        log.info("不存在该用户信息：" + key);
+        return null;
+    }
+    //=================================================
+
+    //先去Redis查询
+    String customerJson = stringRedisTemplate.opsForValue().get(key);
+    Customer customer = null;
+    if (customerJson == null || customerJson.isBlank()){
+        //没有数据，再去mysql数据库中查询
+        customer = getById(customerId);
+        if (customer != null) {
+            //并将查询到的数据存入到Redis中
+            try {
+                customerJson = objectMapper.writeValueAsString(customer);
+                stringRedisTemplate.opsForValue().set(key, customerJson);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return customer;
+    }
+
+    //有数据，则将JSON格式数据转换成对象
+    try {
+        customer = objectMapper.readValue(customerJson, Customer.class);
+    } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+    }
+    return customer;
+}
+```
+
+
+
+
+
+**测试**
+
+启动SpringBoot，在初始情况下，布隆过滤器中已经存在id为12用户的用户数据，此时我们去查询id为12的用户：
+
+<img src=".\images\image-20240720150637333.png" alt="image-20240720150637333" style="zoom:67%;" /> 
+
+此时可以查询到用户数据。
+
+我们去查询id为11的用户或者id为13的用户时：
+
+<img src=".\images\image-20240720150721065.png" alt="image-20240720150721065" style="zoom:67%;" /> 
+
+此时由于布隆过滤器中未存放这两个id的数据，所以无法查询到，并且在IDEA中的控制台中，也有布隆过滤器无法查询到这两个用户的log信息：
+
+![image-20240720150836432](.\images\image-20240720150836432.png) 
+
+然后我们测试一下创建两个用户数据：
+
+<img src=".\images\image-20240720150925741.png" alt="image-20240720150925741" style="zoom:67%;" /> 
+
+此时创建了id为18和19的用户，那么此时我们去查询id为20和21的用户：
+
+<img src=".\images\image-20240720151613456.png" alt="image-20240720151613456" style="zoom:67%;" /> 
+
+此时就能够查询到，因为我们在插入数据的逻辑中，还添加了将数据存入到布隆过滤器中的逻辑。
+
+这样一来，我们就实现了一个简单的布隆过滤器，在查询Redis之前先去查询布隆过滤器中是否包含该数据，如果不包含，则Redis与数据库中也不会包含；如果包含，Redis与数据库中不一定会包含。
+
+
+
+
+
+
+
+
+
+---
+
+## 使用Guava实现布隆过滤器（:star2:）
+
+在实际开发中，我们一般会使用Geogle提供的`Guava`来实现布隆过滤器。
+
+那么，现在我们就来实现使用Guava来实现一下布隆过滤器白名单的功能，从而解决缓存穿透问题。
+
+我们先来看看白名单的架构：
+
+<img src=".\images\image-20240720202447804.png" alt="image-20240720202447804" style="zoom:67%;" /> 
+
+使用布隆过滤器来实现一个白名单的功能，也就是只有白名单里面有的数据查询时才让通过，没有直接返回。但是存在误判，由于误判的概率很小，这很小概率的误判查询打到mysql数据库是可以接受的。
+
+此时，该布隆过滤器也就能够解决缓存穿透问题，将数据库中的数据存入到布隆过滤器与Redis中，如果查询的是一个不存在的数据，此时布隆过滤器就不会让其通过，直接返回，也就不会有大量的不存在数据的请求能够达到数据库，就不会对数据库性能造成影响。
+
+那么，现在我们就使用Guava来实现布隆过滤器的方式修改查询用户的方法，在查询之前先去查询布隆过滤器。
+
+> 我们自己手写的布隆过滤器方案，使用的是Redis数据库中的BitMap数据类型来实现，而Guava方式实现的布隆过滤器并没有去连接Redis，没有与Redis发生耦合，直接使用即可。
+
+### 使用方式
+
+1. **添加依赖**
+
+首先，需要在项目中引入Guava包的依赖：
+
+```xml
+<dependency>
+    <groupId>com.google.guava</groupId>
+    <artifactId>guava</artifactId>
+    <version>31.1-jre</version>
+</dependency>
+```
+
+
+
+2. **使用方法**
+
+使用BloomFilter的静态方法`create()`创建`BloomFilter`对象，传入`Funnel`对象：
+
+* 可以使用`Funnels.stringFunnel()`方法创建一个`Funnel<String>`类型的Funnel对象，此时创建的BloomFilter泛型就是String，表示布隆过滤器中存入的是String类型的数据；
+
+* 可以使用`Funnels.integerFunnel()`方法或者`Funnels.longFunnel()`方法，分别创建泛型为Integer或Long类型的BloomFilter，表示布隆过滤器中存入的是Integer或Long类型。
+
+然后传入布隆过滤器中可能传入的元素个数，并设置误判率。**布隆过滤器会根据传入的`预计元素个数`以及`误判率`，计算出布隆过滤器所使用的`二进制数组大小`以及`无偏函数个数`。**
+
+```java
+BloomFilter<String> filter = BloomFilter.create(Funnels.stringFunnel(Charset.defaultCharset()), 1000,0.01);
+```
+
+使用**`put()`**方法往布隆过滤器中添加元素：
+
+```java
+filter.put("test");
+```
+
+使用**`mightContain()`**方法判断元素是否存在于布隆过滤器中：
+
+```java
+filter.mightContain("test");
+```
+
+
+
+
+
+3. **测试案例**
+
+使用一个案例，来测试一下Guava布隆过滤器：
+
+```java
+public class GuavaTest {
+    @Test
+    public void testGuava(){
+        //创建Guava版布隆过滤器
+        BloomFilter<Integer> filter = BloomFilter.create(Funnels.integerFunnel(), 1000);
+
+        //判断元素是否存在
+        System.out.println(filter.mightContain(1));
+
+        //将元素添加进布隆过滤器
+        filter.put(1);
+        //判断元素是否存在
+        System.out.println(filter.mightContain(1));
+        System.out.println(filter.mightContain(2));
+    }
+}
+```
+
+此时执行结果：
+
+![image-20240720205826844](.\images\image-20240720205826844.png) 
+
+
+
+4. **业务实现**
+
+那么，现在我们就使用Guava来实现布隆过滤器的方式，在读取用户信息之前，先使用布隆过滤器过滤掉，如果布隆过滤器中告诉我们可能存在，则再去Redis与数据库中查询。
+
+```java
+//预计布隆过滤器中插入多少元素
+private static int size = 10000;
+
+//设置的布隆过滤器误判率
+private static double fpp = 0.03;
+
+//构建布隆过滤器
+private static BloomFilter<Integer> bloomFilter = BloomFilter.create(Funnels.integerFunnel(), size, fpp);
+
+//读操作
+@Override
+public Customer findCustomerById(Integer customerId){
+    //key
+    String key = CACHE_KEY_CUSTOMER + customerId;
+
+    //============================================
+    //布隆过滤器筛选
+    //无是绝对无，有是可能有
+    if(!bloomFilter.mightContain(customerId)){
+        log.info("不存在该用户信息：" + key);
+        return null;
+    }
+    //============================================
+
+    //先去Redis查询
+    String customerJson = stringRedisTemplate.opsForValue().get(key);
+    Customer customer = null;
+    if (customerJson == null || customerJson.isBlank()){
+        //没有数据，再去mysql数据库中查询
+        customer = getById(customerId);
+        if (customer != null) {
+            //并将查询到的数据存入到Redis中
+            try {
+                customerJson = objectMapper.writeValueAsString(customer);
+                stringRedisTemplate.opsForValue().set(key, customerJson);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return customer;
+    }
+
+    //有数据，则将JSON格式数据转换成对象
+    try {
+        customer = objectMapper.readValue(customerJson, Customer.class);
+    } catch (JsonProcessingException e) {
+        throw new RuntimeException(e);
+    }
+    return customer;
+}
+```
+
+
+
+
+
+### 源码分析
+
+根据上面的案例，我们来分提出一个问题：
+
+在构建布隆过滤器时，我们要去设置布隆过滤器的误差率，那这个误差率是不是越小越好？误差率为0是不是最好的？
+
+我们带着这个问题，来看看Guava的源码，看看Guava是如何实现的。
+
+假设我们创建BloomFilter对象时，没有设置误差率，此时调用的就是两个参数的`create()`：
+
+![image-20240720215009505](.\images\image-20240720215009505.png)
+
+可以看到：
+
+> **当创建BloomFilter未设置误差率时，默认使用`0.03`的误差率来构建布隆过滤器。**
+
+然后，我们进入到最终调用的`create()`方法中：
+
+```java
+@VisibleForTesting
+static <T extends @Nullable Object> BloomFilter<T> create(
+    Funnel<? super T> funnel, long expectedInsertions, double fpp, Strategy strategy) {
+  checkNotNull(funnel);
+  checkArgument(
+      expectedInsertions >= 0, "Expected insertions (%s) must be >= 0", expectedInsertions);
+  checkArgument(fpp > 0.0, "False positive probability (%s) must be > 0.0", fpp);
+  checkArgument(fpp < 1.0, "False positive probability (%s) must be < 1.0", fpp);
+  checkNotNull(strategy);
+
+  if (expectedInsertions == 0) {
+    expectedInsertions = 1;
+  }
+  /*
+   * TODO(user): Put a warning in the javadoc about tiny fpp values, since the resulting size
+   * is proportional to -log(p), but there is not much of a point after all, e.g.
+   * optimalM(1000, 0.0000000000000001) = 76680 which is less than 10kb. Who cares!
+   */
+  long numBits = optimalNumOfBits(expectedInsertions, fpp);
+  int numHashFunctions = optimalNumOfHashFunctions(expectedInsertions, numBits);
+  try {
+    return new BloomFilter<T>(new LockFreeBitArray(numBits), numHashFunctions, funnel, strategy);
+  } catch (IllegalArgumentException e) {
+    throw new IllegalArgumentException("Could not create BloomFilter of " + numBits + " bits", e);
+  }
+}
+```
+
+在该方法中，先是去检查参数的合法性，要求预计元素数量大于0，误差率大于0小于1，然后：
+
+* **调用`optimalNumOfBits()`方法，使用`预计数据量大小n`和`误差率p`来计算布隆过滤器应使用的`bit数组的大小numBits`；**
+* **调用optimalNumOfHashFunctions()方法，使用`预计数量大小n`和`bit数组大小numBits`来计算布隆过滤器应使用的`hash函数个数k`。**
+
+
+
+当我们在构建布隆过滤器时，预计元素数据量设置为1000000，误差率设置为0.03，此时生成的布隆过滤器底层的bit数组大小为7298440，所使用的hash函数个数为5个：
+
+<img src=".\images\image-20240720220735456.png" alt="image-20240720220735456" style="zoom:67%;" /> 
+
+当我们在构建布隆过滤器时，预计元素数据量设置为1000000，误差率设置为0.01时，此时生成的布隆过滤器底层bit数组大小为9585058，所使用的hash函数个数为7个：
+
+<img src=".\images\image-20240720220929069.png" alt="image-20240720220929069" style="zoom:67%;" /> 
+
+所以我们可以得知：
+
+> **布隆过滤器设置的`误判率越小`，要求的布隆过滤器精度也就越高，所需的资源也就越多，布隆过滤器需要使用的`bit数组也就越大`，`hash函数也就越多`。**
+>
+> 因此，布隆过滤器不是误判率越小越好，而是要根据实际的业务来设置，让布隆过滤器误判率设定为可接受的范围内。
+
+
+
+
+
+
+
+
+
+---
+
+## 布隆过滤器优缺点
+
+**优点**
+
+相比其他数据结构，布隆过滤器在空间和时间方面都有巨大的优势。布隆过滤器存储空间和插入/查询的时间复杂度都是常数O(k)。另外，散列函数相互之间没有关系，方便由硬件并行执行。布隆过滤器不需要存储元素本身，在某些对保密要求非常严格的场所有优势。
+
+布隆过滤器可以表示全集，其他任何数据结构都不能：
+
+1. 全量存储但是不存储数据本身，适合有保密要求的场景。
+2. 空间复杂度为O(N)，不会随着元素增加而增加，占用空间少。
+3. 插入和查询的时间复杂度都是O(k)，不会随着元素的增加而增加，远超于一般算法。
+
+
+
+**缺点**
+
+布隆过滤器的缺点和优点一样明显。误差率是其中之一。随着存入的元素数量的增加，误差率随之增加。但是如果元素数量太少，使用散列表即可。
+
+另外，一般情况下，不能从布隆过滤器中删除元素，因为删除元素有可能会将其他数据在该位置的值删除，我们无法保证布隆过滤器中某一元素的值一定只来源于一个数据，删除后其他数据进入布隆过滤器时也可能会被认作不存在。
+
+* 存在误差率，数据越多，误差率越高；
+* 无法从布隆过滤器中删除数据；
+* 二进制数据长度和hash函数的个数确定过程复杂。
+
+
+
+
+
+
+
+---
+
+# 五、分布式锁
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 六、RedLock底层源码分析
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+# 七、缓存过期淘汰策略
+
+## Redis内存管理操作
+
+#### 1、Redis默认占用的内存是多少？该如何查看与修改？
+
+打开Redis的配置文件redis.conf，在配置文件中搜索`maxmemory`，就会发现这么一行代码：
+
+<img src=".\images\bVcX4hp" alt="image.png"  /> 
+
+如上图所示，默认情况下maxmemory是被注起来的，也就是不设置最大内存大小，相当于设置最大内存大小为0。
+
+我们将其中的`maxmemory <bytes>`这个注解打开，就可以去配置Redis的最大占用内存了，**单位是byte字节**。
+
+我们可以使用
+
+```sh
+config get maxmemory
+```
+
+命令去查看一下当前Redis实例所设置的最大内存大小：
+
+<img src=".\images\image-20240721235329836.png" alt="image-20240721235329836" style="zoom:80%;" /> 
+
+如上图，在不设置内存大小时，也就是在redis.conf配置文件中，该参数使用注解注起来了，那默认是设置最大内存大小为0。
+
+> **如果不设置最大内存大小或者设置最大内存大小为0，`在64位操作系统下表示不限制内存大小`。**
+>
+> **注意：在64位系统下（一般不会安装32位操作系统），maxmemory默认是不设置内存大小的，即此时表示不限制内存。**
+
+
+
+
+
+#### 2、在实际生产中该如何配置Redis占用内存大小？
+
+> **一般推荐Redis设置的最大内存为物理内存的`四分之三`。**
+
+
+
+
+
+#### 3、如何修改Redis内存设置？
+
+**方式一：配置文件修改**（永久方式）
+
+如下图所示，在配置文件中使用`maxmemory`参数修改当前Redis实例的最大占用内存。
+
+![image-20240722091638429](.\images\image-20240722091638429.png)
+
+104857600 = 1024 * 1024 * 100，也就是设置Redis最大内存为100MB。
+
+这种方式是永久性修改，重启Redis实例生效。
+
+
+
+**方式二：使用命令修改**（临时方式）
+
+使用`config set maxmemory 最大内存大小`命令修改Redis实例的最大占用内存大小，这种方式是临时方式，重启后失效：
+
+![image-20240722092143566](.\images\image-20240722092143566.png) 
+
+
+
+
+
+#### 4、使用什么命令查看Redis内存使用情况？
+
+> 1. **`info memory`**
+> 2. **`config get maxmemory`**
+
+info memory命令能够查看当前Redis实例各种内存的大小，包括已使用内存大小、最大占用内存大小、峰值内存大小、进程占用内存大小等等：
+
+<img src=".\images\image-20240722092553668.png" alt="image-20240722092553668" style="zoom:67%;" /> 
+
+config get maxmemory用于去获取Redis最大使用内存大小：
+
+![image-20240722092713897](.\images\image-20240722092713897.png)
+
+
+
+
+
+#### 5、Redis如果打满了最大使用内存会怎么样？
+
+我们来测试一下：
+
+故意将Redis的最大使用内存设置为1byte，然后往其中添加数据：
+
+```sh
+config set maxmemory 1
+
+set k1 v1
+```
+
+![image-20240722093035685](.\images\image-20240722093035685.png)
+
+此时报的是**OOM**错误，也就是`Out Of Memory`，类似于Java中堆内存溢出的问题，表示已经将内存全部占用了，可使用的内存已经无法再存入该数据。
+
+
+
+
+
+----
+
+## Redis过期删除与内存淘汰策略
+
+为了防止Redis占用的内存越来越多，直到打满Redis的最大占用内存，我们需要给Redis的缓存设置一个过期时间，在其过期后能够将该缓存删除，从而保证Redis的可用内存充足。
+
+那么，缓存数据过期后会被清理，Redis是如何清理这些数据的？是立即清理吗，还是定期进行清理呢？这就涉及到Redis的过期淘汰策略了。
+
+**问题：key设置了过期时间并且到期后，该key保存的数据还会占用内存吗？**
+
+
+
+### 过期key删除策略
+
+#### 三种过期键删除策略（:star2:）
+
+##### 1、定时删除
+
+**说明：**也就是立即删除，在设置key的过期时间时，会为key创建一个定时器，让定时器在key的过期时间来临时，对key进行立即删除。
+
+**优点**：能够保证内存中数据的最大新鲜度，因为它保证过期键值会在过期后马上被删除，内存得到尽快释放。
+
+**缺点**：若过期key很多时，删除这些key会占用很多的CPU，在CPU紧张的情况下，会给CPU造成额外的压力，并且为每一个设置过期时间的key都创建一个定时器，将会有大量的定时器产生，性能影响严重。
+
+所以：
+
+> **这种删除策略会产生大量的性能消耗，影响数据的读写操作。**
+>
+> **总结：对内存友好，对CPU不友好，用处理器性能换取存储空间（`拿时间换取空间`）。**
+
+
+
+
+
+##### 2、惰性删除
+
+数据到达过期时间后，不做任何处理，等下次访问该数据时，如果未过期，返回该数据；如果已过期，就去删除这个key，返回不存在。
+
+**优点：**删除操作只发生在从Redis中取出key的时候发生，而且只删除当前key，所以占用CPU的时间比较少。
+
+**缺点**：**对内存极不友好。**如果这个key不被访问，就会一直存在于Redis中，并且永远不会被删除。我们甚至可以将这种情况视为内存泄露，即无用的垃圾占用了大量的内存，对于非常依赖于内存的Redis来说并不好。
+
+所以：
+
+> **惰性删除对内存不友好，用存储空间换取处理器性能（`拿空间换取时间`）**
+
+在默认情况下，**惰性删除是开启的且无法被关闭**，是Redis内置的删除策略，相当于一个兜底机制。
+
+ 
+
+##### 3、定期删除
+
+定期删除是前两种删除策略的折中方案：
+
+定期删除策略是每隔一段时间执行一次删除过期键操作，并限制删除操作执行时长和频率来减少对CPU的影响。定期轮询Redis库中的时效性数据，采用**`随机抽取`**的策略，抽到过期的key就进行删除。
+
+**特点1：**CPU性能占用有峰值，检测频率可自定义设置。
+
+**特点2：**内存压力不是很大，长期占用内存的冷数据会被持续删除。
+
+
+
+定期删除的执行频率由redis.conf配置文件中的**`hz`**参数值指定，默认为10，即**默认情况下每秒执行10次定期删除**：
+
+<img src=".\images\image-20240722175002466.png" alt="image-20240722175002466" style="zoom: 80%;" /> 
+
+5.0之前的Redis版本，hz参数一旦设定以后就是固定的了。hz默认是10，这是官方建议的配置，如果改大，表示Redis会使用更多的CPU时间来执行定期删除任务，官方不建议这么做。
+
+在Redis 5.0以后，有了dynamic-hz参数，默认是yes，表示打开的。该参数表示，在连接数很多的情况下，自动加倍hz，以便处理更多的连接。
+
+```ini
+dynamic-hz yes
+```
+
+
+
+例如：Redis默认每隔100ms检查是否有过期的key，有过期key则删除。注意：Redis不是每隔100ms将所有的key检查一次而是随机抽取进行检查。因此，如果值采用定期删除策略，会导致很多key到时间后没有被删除。
+
+
+
+**缺点：**
+
+1. **定期删除执行的时长和频率很难界定。**如果删除操作执行的太频繁或者执行的时间太长，定期删除策略就会退化为定时删除策略，以至于将CPU过多地消耗在删除键值上面；如果删除操作执行得太少，或者执行的时间太多，定期删除策略又会和惰性删除策略一样，出现浪费内存的情况。因此，如果采用定期删除策略的话，服务器必须根据情况，合理地设置删除操作的执行时长和执行频率。
+2. **可能存在多次抽查都未删除的过期key**（漏网之鱼）。
+
+
+
+
+
+##### 总结
+
+* `定时删除和定期删除为主动删除：Redis会去定期主动淘汰已经过期的key；`
+* `惰性删除为被动删除：用到的时候才会检验key是不是已经过期，过期就删除；`
+* `惰性删除为Redis服务器内置的删除策略；`
+* `定期删除可以通过：配置redis.conf文件的hz参数来设置删除频率，默认为10。表示1秒内执行10次，也就是100ms一次，值越大说明删除的频率越高，对Redis的性能损耗也就越大，推荐不超过100。`
+
+
+
+
+
+#### Redis的过期删除策略
+
+> **Redis默认是"`定期删除 + 惰性删除`"两种策略一起使用。**
+
+使用"`定期删除 + 惰性删除`"就能保证过期的key最终一定会被一杀出，但是只能保证最终一定会被删除，要是定期删除遗漏大量过期的key，并且我们在很长一段时间内再也没有访问这些key，那么这些过期的key会一直占用内存，并且若这些key越来越多，或者没有很多key都没有设置过期时间，此时可能会导致Redis的内存耗尽，这样我们就需要使用内存淘汰的策略，用来筛选淘汰指定的key。
+
+
+
+
+
+
+
+
+
+---
+
+### 内存淘汰策略（:star:）
+
+无论是定期删除，还是惰性删除，都是一种不完全精确的删除策略，始终还是会存在已经过期的key无法被删除的场景。而且这两种过期策略都是只针对设置了过期时间的key，不适用于没有设置过期时间的key的淘汰。当Redis占用的内存，超过我们设定的最大内存大小（或者超过了系统内存）时，就需要使用到内存淘汰策略，用来筛选淘汰指定的key。
+
+即：
+
+内存淘汰策略，也就是当Redis内存满了以后，是如何去淘汰key的。
+
+> **在redis.conf配置文件中，可以通过参数`maxmemory <bytes>`来设定Redis的最大内存，当占用内存达到了`maxmemory`时，便会触发Redis的内存淘汰机制。（默认情况下，`maxmeory`设置为`0`，表示没有内存上限，也就是可以将物理机内存全部占满，推荐设置为物理机内存的`四分之三`）。**
+
+
+
+#### 八种内存淘汰策略
+
+**我们如何查看Redis内存淘汰策略呢？**
+
+我们可以使用`config get maxmemory-policy`命令去临时地获取当前Redis实例的内存淘汰策略，然后使用`config set maxmemory-policy`命令去临时地修改：
+
+![image-20231207233251530](.\images\9578e027b72b194540dc9f6a4f729792.png)
+
+```sh
+127.0.0.1:6379> config set maxmemory-policy volatile-random
+OK
+127.0.0.1:6379> config get maxmemory-policy
+1) "maxmemory-policy"
+2) "volatile-random"
+127.0.0.1:6379>
+```
+
+也可以在Redis的redis.conf文件中，进行永久地修改：
+
+<img src=".\images\image-20240723095458407.png" alt="image-20240723095458407" style="zoom:80%;" /> 
+
+可以看到，Redis一共支持8种内存淘汰策略，在默认情况下使用的是`noeviction`。这八种内存淘汰策略是：
+
+* **`noeviction`**：不会淘汰任何数据，当使用的内存空间超过maxmemory值时，再有写请求时返回错误。**（不删除，返回错误）**
+* **`volatile-ttl`**：当内存不足执行写操作时，在所有设置了过期时间的key里面选择，去删除最快要过期的key。**（删除最快要过期的key）**
+* **`allkeys-lru`**：当内存不足时执行写操作，对所有的key，使用lru算法移除最近最少使用的key。**（所有key里面使用lru）**
+* **`volatile-lru`**：当内存不足时执行写操作，对所有设置了过期时间的key，使用lru算法移除最近最少使用的key。**（设置了过期时间的key里面使用lru）**
+* **`allkeys-lfu`**：当内存不足时执行写操作，对所有的key，使用lfu算法移除最不经常使用的key。**（所有key里面使用lfu）**
+* **`volatile-lfu`**：当内存不足时执行写操作，对所有设置了过期时间的key，使用lfu算法移除最不经常使用的key。**（设置了过期时间的key里面使用lfu）**
+* **`allkeys-random`**：当内存不足时执行写操作时，针对所有的key使用随机淘汰进制进行删除。**（随机删除所有key）**
+* **`volatile-random`**：当内存不足时执行写操作时，针对设置了过期时间的key使用随机淘汰进制进行删除。**（随机删除设置了过期时间的key）**
+
+**Redis默认使用的是`noeviction`的内存淘汰策略**，即不去删除任何键，在写操作时会报错。
+
+> **推荐使用策略：**
+>
+> * 在所有的key都是最近最经常使用，那么就需要使用`allkeys-lru`置换最近最不经常使用的key。
+> * 如果所有的key的访问概率都是差不多的，那么可以选用`allkeys-random`策略去置换数据。
+> * 如果不知道使用哪一种，推荐使用`allkeys-lru`。
+
+
+
+除了比较特殊的noeviction与volatile-ttl，其余6中策略都有一定的关联性。我们可以通过前缀将它们分为两类：volatile-与allkeys-，这两类策略的区别在于二者要选择清除的键不同，volatile-前缀的策略代表从设置了过期时间的key中选择键进行删除；allkeys-开头的策略代表从所有key中选择键进行删除。这里面值得介绍的就是lru与lfu了，下面会对这两种算法进行介绍。
+
+**LRU与LFU算法说明**
+
+**LRU**：**`最近最少使用`**页面置换算法，淘汰最长时间未被使用的页面（key），看页面最后一次被使用到发生调度的时间长短，首先淘汰最长时间未被使用的页面。
+
+**LFU**：**`最近最不常用`**页面置换算法，淘汰一定时期内被访问次数最少的页，看一定时间段内页面被使用的频率，淘汰一定时期内被访问次数最少的页。
+
+举例：
+
+某次时期Time为10分钟，如果每分钟进行一次调页，主存块为3，若所需页面走向为2 1 2 1 2 3 4
+
+假设到页面4时发生了缺页中断：
+
+若按照LRU算法，应该置换页面1（1页面最长时间未被使用），但按照LFU算法应该置换页面3（十分钟内，页面3只使用了一次）
+
+可见LRU关键是看页面最后一次被使用到发生调度的时间长短，而LFU关键是看一定时间段内页面被使用的频率。
+
+
+
+---
+
+#### LRU算法
+
+##### 什么是LRU算法？
+
+LRU是一种基于时间的内存淘汰策略（**`最近最少使用算法，会淘汰最长时间未使用的数据`**）。
+
+它假设最近被访问的数据在未来也更可能被访问，而较长时间未被访问的数据更可能不再被使用。根据这个策略，LRU算法会淘汰最久未被访问的数据，以腾出内存空间。
+
+下面是一个LRU算法示意图：
+
+![图片](.\images\2e949d17c7bf2e756530a9fb494aa67a.png)
+
+如上图所示：
+
+1. 先向缓存空间中插入了三个数据A/B/C，填满了缓存空间；
+2. 读取数据A，缓存空间按照访问时间排序，数据A被移动到了缓存头部；
+3. 插入数据D的时候，由于缓存空间已满，触发了LRU的淘汰机制，此时最长时间未访问的数据B被移出，缓存空间只保留了D/A/C。
+
+
+
+##### 如何使用Java实现LRU算法？
+
+LRU算法核心思想是要去记录最近被访问的、最早被访问的数据，在访问数据和修改数据时，该部分数据就会变成最新的数据，内存不够时会把最早被访问的数据删除掉。
+
+Java中的List集合是可以实现的，我们可以将最近被访问的数据放在List中的第一个位置，最早被访问的数据可以存放在List的最后一个位置。但是使用List集合存在一个问题，当我们去访问或者修改数据时，都会导致集合中元素位置的变动，而List集合若想去移动数据比较麻烦，需要将所有数据都变动，这会存在一个性能问题，所以List集合并不是最优解。
+
+我们可以使用**`双向链表`**的方式实现LRU算法，双向链表中存在着顺序关系，我们可以将正在访问、修改的数据插入在头部，这样一来，最不经常访问的数据就会存在于尾部。并且双向链表的数据插入、删除时间复杂度都是O(1)，性能比较高。
+
+但是，当链表越来越长时，去访问某个元素可能需要遍历整个双向链表，性能较差，如果要去判断缓存是否存在时，可能需要遍历整个链表，所以我们还需要新增一个**`哈希表`**，来记录链表节点的映射关系。
+
+<img src=".\images\4fb67f87cd176c0bb5daa1e32eb36b14.png" alt="图片" style="zoom:80%;" /> 
+
+
+
+##### 手写LRU算法
+
+**LRU算法核心逻辑**
+
+因为访问数据、修改数据都会使元素的位置发生变化，因此分开讨论。
+
+1. 读场景：根据key读取数据，首先会判断哈希表中是否存在该key：
+   * key不存在，直接返回；
+   * key存在，在原链表中删除该节点，并重新插入到链表头部，该键就是最近访问的数据。
+2. 写场景：根据key读取数据，首先会判断哈希表中是否存在该key：
+   * key不存在，判断容量是否达到上限：
+     * 如果没达到上限根据参数构造新节点，把该节点插入到链表头部，之后在哈希表中新增该映射，value是该节点；
+     * 达到上限，把链表的最后一个节点删除，并删除最后一个节点在哈希表的映射关系，然后根据入参构造新节点，把该节点插入到链表头部，只有在哈希表中新增该映射，value是该节点；
+   * key存在，更新哈希表中的value值，并在原链表中删除该节点，把该节点重新插入到链表头部。
+
+
+
+**关键编码实现**
+
+关键属性：
+
+```java
+private Map<Integer, Node> cache; //哈希表，用于快速查找节点
+private Integer capacity; //LRU缓存容量
+private Node head; //双向链表头结点
+private Node last; //双向链表尾节点
+```
+
+读缓存，先判断是否存在该key，如果不存在直接返回-1，如果存在则将该元素从原链表中删除并添加到链表头部，并返回value值：
+
+```java
+public int get(int key){
+	if(!cache.containsKey(key)){
+        //如果不存在，返回-1
+        return -1;
+    }
+    Node node = cache.get(key);//获取节点
+    moveToHead(node);//将节点移动到链表头部，表示最近访问
+    return node.value;//返回value值
+}
+```
+
+写缓存，key如果存在则更新value，并把元素从原链表中删除，并添加到链表头部；如果不存在，并且缓存没满，则构建新节点并添加到链表头部，否则会进行数据淘汰，将尾部的数据删除后再将数据添加到链表头部：
+
+```java
+public void put(int key, int value){
+	if(cache.containsKey(key)){
+        //如果缓存中已经存在该键，获取节点
+        Node node = cache.get(key);
+        //更新节点的值
+        node.value = value;
+        //将节点移动到链表头部
+        moveToHead(node);
+    }else{
+        //如果缓存中不存在该键
+        if(cache.size() == capacity){
+           //如果缓存已满，则去获取尾部节点并移除
+            Node lastNode = last.prev;
+            //移除尾部节点
+            removeNode(lastNode);
+            //从哈希表中移除尾部节点的键
+            cache.remove(lastNode.key);
+        }
+        //创建新节点，并加入到链表与哈希表中
+        Node newNode = new Node(key, value);
+        cache.put(key, newNode);
+        //将节点加入到链表头部
+        addNode(newNode);
+    }
+}
+```
+
+
+
+**LRU算法完整代码实现**
+
+```java
+public class LRUCache {
+    private Map<Integer, Node> cache; // 哈希表用于快速查找节点
+    private int capacity; // LRU缓存的容量
+    private Node head; // 双向链表的头节点
+    private Node tail; // 双向链表的尾节点
+
+    public LRUCache(int capacity) {
+        this.cache = new HashMap<>(capacity); // 初始化哈希表
+        this.capacity = capacity; // 初始化容量
+        this.head = new Node(-1, -1); // 初始化头节点
+        this.tail = new Node(-1, -1); // 初始化尾节点
+        head.next = tail; // 头节点的下一个节点是尾节点
+        tail.prev = head; // 尾节点的上一个节点是头节点
+    }
+
+    public int get(int key) {
+        if (!cache.containsKey(key)) {
+            return -1; // 如果缓存中不存在该键，则返回 -1
+        }
+        Node node = cache.get(key); // 获取节点
+        moveToHead(node); // 将节点移到链表头部，表示最近访问过
+        return node.value; // 返回节点的值
+    }
+
+    public void put(int key, int value) {
+        if (cache.containsKey(key)) { // 如果缓存中已经存在该键
+            Node node = cache.get(key); // 获取节点
+            node.value = value; // 更新节点的值
+            moveToHead(node); // 将节点移到链表头部，表示最近访问过
+        } else { // 如果缓存中不存在该键
+            if (cache.size() == capacity) { // 如果缓存已满
+                Node lastNode = tail.prev; // 获取尾部节点，即最久未使用的节点
+                removeNode(lastNode); // 移除尾部节点
+                cache.remove(lastNode.key); // 从缓存中移除该节点的键
+            }
+            Node newNode = new Node(key, value); // 创建新节点
+            cache.put(key, newNode); // 将节点加入缓存
+            addNode(newNode); // 将节点添加到链表头部
+        }
+    }
+
+    private void moveToHead(Node node) {
+        removeNode(node); // 先将节点从链表中移除
+        addNode(node); // 再将节点添加到链表头部
+    }
+
+    private void addNode(Node node) {
+        node.next = head.next; // 新节点的下一个节点是头节点的下一个节点
+        head.next.prev = node; // 头节点的下一个节点的上一个节点是新节点
+        head.next = node; // 头节点的下一个节点是新节点
+        node.prev = head; // 新节点的上一个节点是头节点
+    }
+
+    private void removeNode(Node node) {
+        node.prev.next = node.next; // 被移除节点的上一个节点的下一个节点是被移除节点的下一个节点
+        node.next.prev = node.prev; // 被移除节点的下一个节点的上一个节点是被移除节点的上一个节点
+    }
+
+    private class Node {
+        int key;
+        int value;
+        Node prev;
+        Node next;
+
+        public Node(int key, int value) {
+            this.key = key;
+            this.value = value;
+        }
+    }
+}
+```
+
+
+
+##### Redis是如何实现LRU算法的？
+
+由官方文档介绍，**Redis所实现的是一种近似的LRU算法，每次随机选取一批数据，通过访问时间进行排序后，淘汰掉最不经常使用的key，而不是针对所有的数据，通过牺牲部分准确率来提高LRU算法的执行效率**。
+
+Redis内部只使用了Hash表缓存数据，没有创建一个专门针对于LRU算法的双向链表。这样做有几个好处：
+
+* Redis是随机抽取一批数据去按照淘汰策略排序，不再需要对所有数据排序、也不需要对数据所有都进行移位，带来性能的提升；
+* 淘汰策略改变时，不至于会影响到所有数据的改变。
+
+Redis中的LRU算法实现基于redisObject底层数据结构，成员变量lru字段用于记录此key最近一次被访问的LRU时钟（server.lrulock），每次Key被访问或者修改时都会引起lru字段的更新。
+
+![image-20231209191339381](.\images\804c3a9e1492109f74c54fc5fd4934f6.png) 
+
+**LRU算法缺陷**：LRU算法仅关注数据的访问时间或访问顺序，忽略了访问次数的价值，在淘汰数据过程中可能会淘汰掉热点数据。
+
+![img](.\images\2ae955063e7853331062fbdec70174e8.png) 
+
+如上图所示，时间轴自左向右，数据A/B/C在同一段时间内被分别访问的数次。数据C在最近一次访问的数据，按照LRU算法排列数据的热度是C>B>A，而数据的真实热度是B>A>C。
+
+使用LRU算法可能会将热点数据B、A删除，将非热点数据C保留，这是LRU算法可能存在的问题。
+
+
+
+
+
+---
+
+#### LFU算法
+
+##### 什么是LFU算法？
+
+LFU是一种基于访问频率的内存淘汰策略（**`最不经常使用算法`，根据key最近被访问的频率进行淘汰，比较少访问的key优先淘汰，反之则保留**）。
+
+它假设经常被访问的数据在未来仍然频繁被访问，而较少被访问的数据更可能不再被使用。根据这个策略，LFU算法会淘汰掉访问频率最低的数据，以释放内存空间。
+
+很多人看到上面的描述，会认为LFU算法主要是比较数据的访问次数，毕竟访问次数多了自然访问频率就高。实际上，**访问频率不能等同于访问次数**，访问频率还和访问的时间有关。
+
+![img](.\images\7aadb0e04acd2fa499b2d97deaafd915.png) 
+
+如上图所示，在这段时间内数据A被访问了5次，数据B和数据C被访问了四次，如果按照访问次数判断数据热度值，那就是A>B=C；但是如果考虑到时效性，距离当前时间越近的访问越有价值，那么数据热度值就应该是C>B>A。因此，LFU算法一把都会有一个时间衰减函数来参数热度值的计算，兼顾了访问时间的影响。
+
+
+
+##### 如何实现LFU算法？
+
+实现LFU算法的一种常见方法是使用三个数据结构：
+
+1. **`哈希表（keyToValue）`：用于存储键值对，提供快速的键值查找功能。**
+2. **`哈希表（keyToFreq）`：用于存储键的访问频率，记录每个键被访问的次数。**
+3. **`哈希表（freqToKeys）`：用于存储相同访问频率的键的集合，以便快速获取具有相同访问频率的键。**
+
+这里，我们仅仅只是使用了访问次数来代表访问频率，实际Redis的访问频率不仅仅和访问次数有关，还和访问时间有关，这里我们自己去手写实现就不去考虑时间因素了。
+
+
+
+LFU算法的实现步骤如下：
+
+1. 初始化缓存容量，最小访问频率为0以及上述三个哈希表。
+2. 当需要获取缓存中的数据时，首先检查键是否存在于keyToValue哈希表中。如果不存在，则返回-1表示未找到；如果存在，则获取对应的值，并更新该键的访问频率。
+3. 当需要插入新的数据项时，首先检查缓存是否已满，如果已满，根据LFU原则淘汰一个访问频率最低的数据项，然后将心的键值对添加到keyToValue哈希表中，并将访问频率设置为1，并将键添加到对应访问频率的键集合中。如果缓存未满，则直接将新的键值对添加到keyToValue哈希表中，并将访问频率设置为1，并将键添加到对应的访问频率的键集合中。
+4. 当更新键的访问频率时，首先从原访问频率的键集合中移除该键。如果原访问频率的键集合为空且等于最小访问频率，则更新最小访问频率。然后将键添加到新访问频率的键集合中，并更新键的访问频率。
+
+5. 当需要淘汰数据项时，从最小访问频率的键集合中选择一个键进行淘汰，并从keyToValue、keyToFreq和freqToKeys哈希表中移除该键。
+
+
+
+##### 手写一个LFU算法
+
+**关键编码实现**
+
+关键属性，keyToValue用来存储数据、keyToFreq用来存储key的频率、freqToKeys用来存储相同访问频率的键的集合：
+
+```java
+private Map<Integer, Integer> keyToValue; // 存储键值对的哈希表
+private Map<Integer, Integer> keyToFreq; // 存储键的访问频率的哈希表
+private Map<Integer, LinkedHashSet<Integer>> freqToKeys; // 存储相同访问频率的键的集合的哈希表
+private int capacity; // 缓存容量
+private int minFreq; // 最小访问频率
+```
+
+当我们访问元素时，先判断数据是否存在（即keyToValue是否存在），如不存在返回-1，存在则获取数据并更新对应的频率：
+
+```java
+public int get(int key){
+    //如果键不存在，返回-1
+    if(!keyToValue.conatinsKey(key)){
+        return -1;
+    }
+    int freq = keyToFreq.get(key);
+    //更新键的访问频率
+    updateFreq(key, freq);
+    //返回value
+    return keyToValue.get(key);
+}
+```
+
+插入数据或者更新数据时，也会区分key是否存在的情况，具体如下：
+
+```java
+public void put(int key, int value) {
+    if (keyToValue.containsKey(key)) {
+        keyToValue.put(key, value); // 如果键已存在，则更新值
+        int freq = keyToFreq.get(key);
+        updateFreq(key, freq); // 更新键的访问频率
+    } else {
+        //如果键不存在
+        if (keyToValue.size() >= capacity) {
+            // 如果缓存已满，则淘汰一个键
+            evict(); 
+        }
+        // 添加新的键值对
+        keyToValue.put(key, value); 
+        // 设置键的初始访问频率为 1
+        keyToFreq.put(key, 1); 
+        // 初始化访问频率为 1 的键集合
+        freqToKeys.putIfAbsent(1, new LinkedHashSet<>()); 
+        // 将键添加到访问频率为 1 的键集合中
+        freqToKeys.get(1).add(key); 
+        minFreq = 1; // 更新最小访问频率为 1
+    }
+}
+```
+
+访问数据、修改数据都会进行数据的淘汰，可在freqToKeys进行数据的淘汰，因为LinkedHashSet可以保证有序，因此每次淘汰时只需要把第一个元素淘汰即可：
+
+```java
+private void evict() {
+    LinkedHashSet<Integer> keys = freqToKeys.get(minFreq); // 获取最小访问频率的键集合
+    int evictKey = keys.iterator().next(); // 获取集合中的第一个键进行淘汰
+    keys.remove(evictKey); // 从键集合中移除被淘汰的键
+    keyToValue.remove(evictKey); // 从键值对哈希表中移除被淘汰的键值对
+    keyToFreq.remove(evictKey); // 从访问频率哈希表中移除被淘汰的键
+}
+```
+
+下面是更新键的访问频次方法，会去更新freqToKeys与keyToFreq这两个哈希表，并且修改最小访问频次的值：
+
+```java
+//更新键的访问频次方法
+private void updateFreq(int key, int freq) {
+    freqToKeys.get(freq).remove(key); // 从原访问频率的键集合中移除键
+    if (freqToKeys.get(freq).isEmpty() && freq == minFreq) {
+        // 如果原访问频率的键集合为空且等于最小访问频率，则更新最小访问频率
+        minFreq++; 
+    }
+    // 初始化新访问频率的键集合
+    freqToKeys.putIfAbsent(freq + 1, new LinkedHashSet<>()); 
+    freqToKeys.get(freq + 1).add(key); // 将键添加到新访问频率的键集合中
+    keyToFreq.put(key, freq + 1); // 更新键的访问频率
+}
+```
+
+
+
+
+
+**LFU算法完整代码实现**
+
+```java
+public class LFUCache {
+    private Map<Integer, Integer> keyToValue; // 存储键值对的哈希表
+    private Map<Integer, Integer> keyToFreq; // 存储键的访问频率的哈希表
+    private Map<Integer, LinkedHashSet<Integer>> freqToKeys; // 存储相同访问频率的键的集合的哈希表
+    private int capacity; // 缓存容量
+    private int minFreq; // 最小访问频率
+
+    public LFUCache(int capacity) {
+        this.keyToValue = new HashMap<>();
+        this.keyToFreq = new HashMap<>();
+        this.freqToKeys = new HashMap<>();
+        this.capacity = capacity;
+        this.minFreq = 0;
+    }
+
+    public int get(int key) {
+        if (!keyToValue.containsKey(key)) {
+            return -1; // 如果键不存在，则返回 -1
+        }
+        int value = keyToValue.get(key);
+        int freq = keyToFreq.get(key);
+        updateFreq(key, freq); // 更新键的访问频率
+        return value;
+    }
+
+    public void put(int key, int value) {
+        if (capacity <= 0) {
+            return; // 如果缓存容量为 0，则直接返回
+        }
+        if (keyToValue.containsKey(key)) {
+            keyToValue.put(key, value); // 如果键已存在，则更新值
+            int freq = keyToFreq.get(key);
+            updateFreq(key, freq); // 更新键的访问频率
+        } else {
+            if (keyToValue.size() >= capacity) {
+                evict(); // 如果缓存已满，则淘汰一个键
+            }
+            keyToValue.put(key, value); // 添加新的键值对
+            keyToFreq.put(key, 1); // 设置键的初始访问频率为 1
+            freqToKeys.putIfAbsent(1, new LinkedHashSet<>()); // 初始化访问频率为 1 的键集合
+            freqToKeys.get(1).add(key); // 将键添加到访问频率为 1 的键集合中
+            minFreq = 1; // 更新最小访问频率为 1
+        }
+    }
+
+    private void updateFreq(int key, int freq) {
+        freqToKeys.get(freq).remove(key); // 从原访问频率的键集合中移除键
+        if (freqToKeys.get(freq).isEmpty() && freq == minFreq) {
+            minFreq++; // 如果原访问频率的键集合为空且等于最小访问频率，则更新最小访问频率
+        }
+        freqToKeys.putIfAbsent(freq + 1, new LinkedHashSet<>()); // 初始化新访问频率的键集合
+        freqToKeys.get(freq + 1).add(key); // 将键添加到新访问频率的键集合中
+        keyToFreq.put(key, freq + 1); // 更新键的访问频率
+    }
+
+    private void evict() {
+        LinkedHashSet<Integer> keys = freqToKeys.get(minFreq); // 获取最小访问频率的键集合
+        int evictKey = keys.iterator().next(); // 获取集合中的第一个键进行淘汰
+        keys.remove(evictKey); // 从键集合中移除被淘汰的键
+        keyToValue.remove(evictKey); // 从键值对哈希表中移除被淘汰的键值对
+        keyToFreq.remove(evictKey); // 从访问频率哈希表中移除被淘汰的键
+    }
+}
+```
+
+
+
+
+
+
+
+##### Redis是如何实现LFU算法的？
+
+Redis使用一种近似的LFU算法，称为**近似LFU**（Approximate LFU）。这是为了减少内存消耗，因为精确实现LFU算法需要维护每个键的访问频率计数器，会占用大量内存。
+
+在Redis中，近似LFU算法的实现主要依赖于两个关键的数据结构：`LFU近似计数器`和`LFU时钟`。
+
+1. **LFU近似计数器**：Redis使用一个固定大小的数组来存储LFU近似计数器。数组的每个索引对应一个桶，每个桶中存储了一组键。每当一个键被访问时，对应桶的计数器会增加。当需要淘汰键时，Redis会选择计数器最小的桶，并从该桶中淘汰一个键。就类似于我们自己手写实现的freqToKeys哈希表。
+2. LFU时钟：Redis使用一个全局的时钟来跟踪键的访问频率。时钟以固定的时间间隔进行递增。当时钟递增时，Redis会将当前桶的计数器值除以2，并将结果存储在下一个桶中。这样，访问频率较低的键会逐渐被淘汰。
+
+需要注意的是，Redis的近似LFU算法是在内存中进行的，而不是在持久化存储中。当Redis重启时，近似LFU计数器会被重置，因此在重启后可能会出现一些冷启动的情况。
+
+
+
+
+
+## 淘汰策略的选择
+
+> * 如果数据呈现幂等分布(即部分数据访问频率较高而其余部分访问频率较低)，建议使用 allkeys-lru或allkeys-lfu。
+>
+> * 如果数据呈现平等分布(即所有数据访问概率大致相等)，建议使用 allkeys-random。
+>
+> * 如果需要通过设置不同的ttls来确定数据过期的顺序，建议使用volatile-ttl。
+>
+> * 如果你想让一些数据长期保存，而一些数据可以消除，建议使用volatile-lru或volatile-random。
+>
+> 由于设置expire会消耗额外的内存，如果你打算避免Redis内存浪费在这一项上，可以选择allkeys-lru策略，这样就可以不再设置过期时间，高效利用内存。
+
+
+
+
+
+
+
+## 使用建议
+
+* 虽然Redis提供了内存淘汰策略，但我们最好还是精简对Redis的使用，尽量不要淘汰内存数据。下面是一些使用建议：
+
+* 不要放垃圾数据，及时清理无用数据。
+
+* key尽量都设置过期时间。对具有时效性的key设置过期时间，通过redis自身的过期key清理策略来降低过期key对于内存的占用，同时也能够减少业务的麻烦，不需要定期手动清理了。
+
+* 单Key不要过大，这种key造成的网络传输延迟会比较大，需要分配的输出缓冲区也比较大，在定期清理的时候也容易造成比较高的延迟. 最好能通过业务拆分，数据压缩等方式避免这种过大的key的产生。
+
+* 不同业务如果公用一个业务的话，最好使用不同的逻辑db分开。这是因为Redis的过期Key清理策略和强制淘汰策略都会遍历各个db。将key分布在不同的db有助于过期Key的及时清理。另外不同业务使用不同db也有助于问题排查和无用数据的及时下线。
+  
