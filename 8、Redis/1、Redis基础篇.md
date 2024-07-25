@@ -1,3 +1,7 @@
+[TOC]
+
+
+
 # 一、初识Redis
 
 ## 1、简单介绍
@@ -2289,9 +2293,6 @@ public class StringRedisTemplateTest {
 >   * 使用StringRedisTempalte
 >   * 写入Redis时，手动把对象序列化为JSON
 >   * 读取Redis时，手动把读取到的JSON反序列化为对象
-
-
-
 
 
 
